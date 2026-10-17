@@ -41,6 +41,10 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Employee photo & signature (employee_media collection) synced from vendor photoUrl/signatureUrl; preview + zoom on admin detail and employee profile; admin upload (PNG/JPEG/WEBP, base64 validated)
 - Tested: iteration_4 backend 11/11, frontend 100%
 
+## Implemented (2026-10-17, iteration 6)
+- Admin employee detail layout: profile panel (photo/signature column + Job / Personal & contact / Bank & statutory groups), Salary breakup panel (Basic, HRA, DA, Special, Bonus, gross month/year, CTC if present), full-width Service record with collapsible add form
+- Vendor sync now stores da, special, bonus, ctc_annual separately
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

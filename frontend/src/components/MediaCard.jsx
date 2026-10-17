@@ -38,11 +38,11 @@ const Slot = ({ label, src, kind, onView, onUpload }) => (
   </div>
 );
 
-export default function MediaCard({ media, onUpload }) {
+export default function MediaCard({ media, onUpload, stacked }) {
   const [view, setView] = useState(null);
   return (
     <div data-testid="employee-media-card">
-      <div className="grid grid-cols-2 gap-4 items-start">
+      <div className={`grid gap-4 items-start ${stacked ? "grid-cols-2 md:grid-cols-1" : "grid-cols-2"}`}>
         <Slot label="Photo" kind="photo" src={media?.photo} onView={setView} onUpload={onUpload} />
         <Slot label="Signature" kind="signature" src={media?.signature} onView={setView} onUpload={onUpload} />
       </div>
