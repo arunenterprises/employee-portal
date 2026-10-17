@@ -64,6 +64,9 @@ User choices: separate new portal; admin creates employee accounts (login with e
 ## Implemented (2026-10-17, iteration 11)
 - Monthly sheet "Export Excel (CSV)" button: UTF-8 BOM CSV (attendance-sheet-YYYY-MM.csv) with Employee Code, Name, per-day codes (Late suffix), P/A/L/H/HL/W totals, Late Days, Paid Days = P+L+HL+W+H/2
 
+## Implemented (2026-10-17, iteration 12)
+- Sheet cell edit: click any day in Monthly sheet -> popover with P/A/L/H/W/HL + optional reason. PUT /api/admin/attendance-sheet/cell saves to attendance_overrides (wins over HR/portal/leave in sheet, blue dot) and pushes that day instantly to vendor attendance (push_day). Hourly push_attendance skips overridden days so admin edits aren't reverted.
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

@@ -24,7 +24,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 
 from payslip_pdf import build_payslip_pdf
-from vendor_sync import run_sync, push_now
+from vendor_sync import run_sync, push_now, push_day
 import calendar
 import asyncio
 import hmac
@@ -669,6 +669,10 @@ async def attendance_sheet(month: str, admin: dict = Depends(admin_user)):
             while d <= min(date_cls.fromisoformat(lv["end_date"]), date_cls.fromisoformat(last)):
                 cells.setdefault(f"{d.day:02d}", {"code": "H" if lv.get("leave_type") == "Half Day" else "L", "source": "leave", "note": lv.get("leave_type")})
                 d += timedelta(days=1)
+        for o in await db.attendance_overrides.find({"user_id": uid, "date": {"$regex": f"^{month}"}}).to_list(40):
+            dd = o["date"][8:10]
+            base = cells.get(dd) or {}
+            cells[dd] = {**base, "code": o["code"], "source": "admin", "late": base.get("late", 0) if o["code"] == "P" else 0, "note": f"Edited by admin{' (' + o['reason'] + ')' if o.get('reason') else ''}"}
         totals = {}
         for c in cells.values():
             totals[c["code"]] = totals.get(c["code"], 0) + 1
@@ -676,6 +680,40 @@ async def attendance_sheet(month: str, admin: dict = Depends(admin_user)):
         rows.append({"user_id": uid, "name": e.get("name"), "employee_id": e.get("employee_id"), "department": e.get("department"), "cells": cells, "totals": totals})
     last_sync = await db.sync_logs.find_one({"status": "success"}, sort=[("started_at", -1)])
     return {"month": month, "days": ndays, "rows": rows, "last_sync": last_sync["finished_at"].isoformat() if last_sync else None}
+
+
+class SheetCellIn(BaseModel):
+    user_id: str
+    date: str
+    code: str
+    reason: Optional[str] = ""
+
+
+SHEET_CODES = {"P", "A", "L", "H", "W", "HL"}
+
+
+@api.put("/admin/attendance-sheet/cell")
+async def edit_sheet_cell(body: SheetCellIn, admin: dict = Depends(admin_user)):
+    try:
+        date_cls.fromisoformat(body.date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Date must be YYYY-MM-DD")
+    if body.code not in SHEET_CODES:
+        raise HTTPException(status_code=400, detail=f"Code must be one of {', '.join(sorted(SHEET_CODES))}")
+    emp = await db.users.find_one({"_id": oid(body.user_id), "role": "employee"})
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    await db.attendance_overrides.update_one(
+        {"user_id": body.user_id, "date": body.date},
+        {"$set": {"code": body.code, "reason": (body.reason or "").strip(), "by": admin.get("email"), "updated_at": now_utc()}}, upsert=True)
+    if not emp.get("vendor_id"):
+        return {"saved": True, "hr_updated": False, "hr_message": "Employee is not linked to HR Management"}
+    try:
+        await push_day(db, body.user_id, emp["vendor_id"], body.date, body.code)
+        return {"saved": True, "hr_updated": True}
+    except Exception as e:
+        logger.exception("Sheet cell push failed")
+        return {"saved": True, "hr_updated": False, "hr_message": f"HR Management update failed: {e}"}
 
 
 # ---------- leave balance ----------

@@ -162,7 +162,8 @@ async def push_attendance(db, client, headers, today: date_cls, remote: dict = N
         month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         for e in emps:
             uid = str(e["_id"])
-            att = await db.attendance.find({"user_id": uid, "date": {"$regex": f"^{prefix}"}}, {"date": 1, "late": 1, "late_minutes": 1}).to_list(40)
+            locked = {o["date"][8:10] for o in await db.attendance_overrides.find({"user_id": uid, "date": {"$regex": f"^{prefix}"}}, {"date": 1}).to_list(40)}
+            att = [a for a in await db.attendance.find({"user_id": uid, "date": {"$regex": f"^{prefix}"}}, {"date": 1, "late": 1, "late_minutes": 1}).to_list(40) if a["date"][8:10] not in locked]
             leaves = await db.requests.find({"user_id": uid, "type": "leave", "status": "approved",
                                              "start_date": {"$lte": month_end.isoformat()}, "end_date": {"$gte": month_start.isoformat()}}).to_list(50)
             if not att and not leaves:
@@ -185,7 +186,7 @@ async def push_attendance(db, client, headers, today: date_cls, remote: dict = N
                 d = max(date_cls.fromisoformat(lv["start_date"]), month_start)
                 while d <= min(date_cls.fromisoformat(lv["end_date"]), month_end):
                     dd = f"{d.day:02d}"
-                    if not days.get(dd):
+                    if not days.get(dd) and dd not in locked:
                         days[dd] = code
                         changed = True
                     d += timedelta(days=1)
@@ -197,6 +198,30 @@ async def push_attendance(db, client, headers, today: date_cls, remote: dict = N
                 await db.vendor_attendance.update_one({"user_id": uid, "year": y, "month": m}, {"$set": {"days": days, "late": late, "pulled_at": datetime.now(timezone.utc)}}, upsert=True)
                 pushed += 1
     return {"attendance_months_pushed": pushed}
+
+
+async def _vendor_headers(client) -> dict:
+    lr = await client.post(f"{_url()}/auth/login", json={"identifier": os.environ["VENDOR_EMAIL"], "password": os.environ["VENDOR_PASSWORD"]})
+    lr.raise_for_status()
+    return {"Authorization": f"Bearer {lr.json()['token']}"}
+
+
+async def push_day(db, user_id: str, vendor_id: str, day: str, code: str):
+    y, m, dd = int(day[:4]), int(day[5:7]), day[8:10]
+    async with httpx.AsyncClient(timeout=60) as client:
+        headers = await _vendor_headers(client)
+        _, remote = await pull_attendance(db, client, headers)
+        doc_id = f"att_{vendor_id}_{y}{m:02d}"
+        doc = remote.get(doc_id) or {}
+        days, late = dict(doc.get("days") or {}), dict(doc.get("late") or {})
+        days[dd] = code
+        if code != "P":
+            late.pop(dd, None)
+        body = {"id": doc_id, "empId": vendor_id, "year": y, "month": m, "days": days, "late": late,
+                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
+        pr = await client.post(f"{_url()}/attendance", headers=headers, json=body)
+        pr.raise_for_status()
+        await db.vendor_attendance.update_one({"user_id": user_id, "year": y, "month": m}, {"$set": {"days": days, "late": late, "pulled_at": datetime.now(timezone.utc)}}, upsert=True)
 
 
 async def push_now(db, user_id: str, today: date_cls):
