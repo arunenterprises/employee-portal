@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { ArrowLeft, Pencil, Trash2, KeyRound, Printer, BookOpen } from "lucide-react";
 import { LeaveBalanceAdmin } from "@/components/LeaveBalance";
+import { AppraisalsModule, AttendanceModule, RequestsModule, PayslipsModule } from "@/components/EmployeeModules";
 import { SlipsPreview, issueSlips } from "@/components/CredentialSlips";
 import MediaCard from "@/components/MediaCard";
 import { ResetPasswordDialog, AccessSwitch } from "@/components/EmployeeAccess";
@@ -44,6 +45,12 @@ export const AddRecord = ({ userId, onAdded, onCancel }) => {
 
 export default function AdminEmployeeDetail() {
   const { id } = useParams();
+  return <EmployeeRecord id={id} />;
+}
+
+const TABS = [["profile", "Profile"], ["salary", "Salary & Leave"], ["service", "Service Book"], ["appraisals", "Appraisals"], ["attendance", "Attendance"], ["requests", "Requests"], ["payslips", "Payslips"]];
+
+export function EmployeeRecord({ id, embedded }) {
   const navigate = useNavigate();
   const [e, setE] = useState(null);
   const [records, setRecords] = useState([]);
@@ -54,6 +61,7 @@ export default function AdminEmployeeDetail() {
   const [media, setMedia] = useState(null);
   const [slips, setSlips] = useState(null);
   const [slipConfirm, setSlipConfirm] = useState(false);
+  const [tab, setTab] = useState("profile");
   const printSlip = async () => {
     try { setSlips(await issueSlips([id])); setE((x) => ({ ...x, must_change_password: true })); } catch (err) { toast.error(errMsg(err)); }
   };
@@ -95,33 +103,31 @@ export default function AdminEmployeeDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/admin/employees" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="back-to-employees"><ArrowLeft size={14} />Employees</Link>
+      {!embedded && <Link to="/admin/employees" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="back-to-employees"><ArrowLeft size={14} />Employees</Link>}
 
       <section className="rounded-2xl bg-[hsl(var(--sidebar))] text-white grid-bg overflow-hidden rise" data-testid="employee-hero">
-        <div className="p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center gap-6">
-          <div className="flex items-center gap-5 flex-1 min-w-0">
-            {media?.photo
-              ? <img src={media.photo} alt={e.name} className="h-24 w-24 rounded-2xl object-cover ring-4 ring-white/10 shrink-0" data-testid="hero-photo" />
-              : <div className="h-24 w-24 rounded-2xl bg-white/10 grid place-items-center text-3xl font-display font-bold shrink-0">{e.name?.[0]}</div>}
-            <div className="min-w-0">
-              <div className="font-mono text-xs tracking-widest text-blue-300">{e.employee_id}</div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-1 break-words" data-testid="hero-name">{e.name}</h1>
-              <div className="text-slate-300 mt-1">{[e.designation, e.department].filter(Boolean).join(" · ") || "—"}</div>
-              <div className="flex flex-wrap gap-2 mt-3 text-xs font-semibold">
-                <span className={`rounded-full px-2.5 py-0.5 ${e.active !== false ? "bg-emerald-400/15 text-emerald-300" : "bg-rose-400/15 text-rose-300"}`}>{e.active !== false ? "Active" : "Inactive"}</span>
-                <span className={`rounded-full px-2.5 py-0.5 ${live ? "bg-blue-400/15 text-blue-200" : "bg-rose-400/15 text-rose-300"}`}>Portal {live ? "Live" : "Unlive"}</span>
-                {e.source === "vendor" && <span className="rounded-full px-2.5 py-0.5 bg-white/10 text-slate-200">Vendor HR</span>}
-              </div>
+        <div className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center gap-6">
+          {media?.photo
+            ? <img src={media.photo} alt={e.name} className="h-28 w-24 rounded-xl object-cover ring-4 ring-white/10 shrink-0" data-testid="hero-photo" />
+            : <div className="h-28 w-24 rounded-xl bg-white/10 grid place-items-center text-3xl font-display font-bold shrink-0">{e.name?.[0]}</div>}
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-xs tracking-widest text-blue-300">{e.employee_id}</div>
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-1" data-testid="hero-name">{e.name}</h1>
+            <div className="text-slate-300 mt-1">{[e.designation, e.department].filter(Boolean).join(" · ") || "—"}</div>
+            <div className="flex flex-wrap gap-2 mt-3 text-xs font-semibold">
+              <span className={`rounded-full px-2.5 py-0.5 ${e.active !== false ? "bg-emerald-400/15 text-emerald-300" : "bg-rose-400/15 text-rose-300"}`}>{e.active !== false ? "Active" : "Inactive"}</span>
+              <span className={`rounded-full px-2.5 py-0.5 ${live ? "bg-blue-400/15 text-blue-200" : "bg-rose-400/15 text-rose-300"}`}>Portal {live ? "Live" : "Unlive"}</span>
+              {e.source === "vendor" && <span className="rounded-full px-2.5 py-0.5 bg-white/10 text-slate-200">Vendor HR</span>}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-white/10 px-3 h-10 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal <AccessSwitch employee={e} onChange={setE} /></span>
-            <Button variant="secondary" asChild data-testid="open-service-book-btn"><Link to={`/admin/service-book?id=${e.id}`}><BookOpen size={15} className="mr-2" />Service book</Link></Button>
-            <Button variant="secondary" onClick={() => setSlipConfirm(true)} data-testid="print-slip-btn"><Printer size={15} className="mr-2" />Print slip</Button>
-            <Button variant="secondary" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={15} className="mr-2" />Reset password</Button>
-            <Button variant="secondary" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={15} className="mr-2" />Edit</Button>
-            <Button variant="secondary" onClick={() => setDel(true)} className="text-rose-600 hover:text-rose-700" data-testid="delete-employee-btn"><Trash2 size={15} className="mr-2" />Delete</Button>
-          </div>
+        </div>
+        <div className="px-6 sm:px-8 py-4 border-t border-white/10 flex flex-wrap items-center gap-2" data-testid="hero-actions">
+          <span className="rounded-md bg-white/10 px-3 h-9 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal {live ? "Live" : "Unlive"} <AccessSwitch employee={e} onChange={setE} /></span>
+          <Button size="sm" variant="secondary" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={14} className="mr-2" />Edit details</Button>
+          <Button size="sm" variant="secondary" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={14} className="mr-2" />Reset password</Button>
+          <Button size="sm" variant="secondary" onClick={() => setSlipConfirm(true)} data-testid="print-slip-btn"><Printer size={14} className="mr-2" />Print slip</Button>
+          {!embedded && <Button size="sm" variant="secondary" asChild data-testid="open-service-book-btn"><Link to={`/admin/service-book?id=${e.id}`}><BookOpen size={14} className="mr-2" />Service book</Link></Button>}
+          <Button size="sm" variant="secondary" onClick={() => setDel(true)} className="text-rose-600 hover:text-rose-700 sm:ml-auto" data-testid="delete-employee-btn"><Trash2 size={14} className="mr-2" />Delete</Button>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-white/10">
           {facts.map(([l, v], i) => (
@@ -133,33 +139,41 @@ export default function AdminEmployeeDetail() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-6">
-          <Panel data-testid="employee-detail-info">
-            <h3 className="font-display text-lg font-semibold mb-6">Employee profile</h3>
-            <div className="flex flex-col md:flex-row gap-8">
-              <div className="flex-1 min-w-0 space-y-7">{groups.map(([t, items]) => <Group key={t} title={t} items={items} />)}</div>
-              <div className="md:w-48 shrink-0 md:border-l md:pl-6"><MediaCard media={media} onUpload={uploadMedia} stacked /></div>
-            </div>
-          </Panel>
-          <Panel data-testid="salary-panel">
-            <h3 className="font-display text-lg font-semibold mb-4">Salary breakup</h3>
-            <SalaryBreakup e={e} wide />
-          </Panel>
-          <Panel data-testid="leave-balance-panel">
-            <h3 className="font-display text-lg font-semibold mb-4">Leave balance</h3>
-            <LeaveBalanceAdmin userId={e.id} />
-          </Panel>
+      <div className="flex gap-1 overflow-x-auto rounded-xl border bg-white p-1" role="tablist" data-testid="record-tabs">
+        {TABS.map(([k, l]) => (
+          <button key={k} role="tab" onClick={() => setTab(k)} data-testid={`record-tab-${k}`}
+            className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${tab === k ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{l}</button>
+        ))}
+      </div>
+
+      {tab === "profile" && (
+        <Panel data-testid="employee-detail-info">
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="flex-1 min-w-0 space-y-7">{groups.map(([t, items]) => <Group key={t} title={t} items={items} />)}</div>
+            <div className="md:w-52 shrink-0 md:border-l md:pl-6"><MediaCard media={media} onUpload={uploadMedia} stacked /></div>
+          </div>
+        </Panel>
+      )}
+      {tab === "salary" && (
+        <div className="space-y-6">
+          <Panel data-testid="salary-panel"><h3 className="font-display text-lg font-semibold mb-4">Salary breakup</h3><SalaryBreakup e={e} wide /></Panel>
+          <Panel data-testid="leave-balance-panel"><h3 className="font-display text-lg font-semibold mb-4">Leave balance</h3><LeaveBalanceAdmin userId={e.id} /></Panel>
         </div>
-        <Panel className="self-start xl:sticky xl:top-6" data-testid="service-record-panel">
+      )}
+      {tab === "service" && (
+        <Panel data-testid="service-record-panel">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="font-display text-lg font-semibold">Service record</h3>
-            {!adding && <Button size="sm" variant="outline" onClick={() => setAdding(true)} data-testid="sr-open-form">+ Add record</Button>}
+            <h3 className="font-display text-lg font-semibold">Service book entries</h3>
+            {!adding && <Button size="sm" variant="outline" onClick={() => setAdding(true)} data-testid="sr-open-form">+ Add entry</Button>}
           </div>
           {adding && <AddRecord userId={id} onAdded={() => { loadRecords(); setAdding(false); }} onCancel={() => setAdding(false)} />}
           <ServiceTimeline records={records} onDelete={removeRecord} />
         </Panel>
-      </div>
+      )}
+      {tab === "appraisals" && <Panel><AppraisalsModule userId={e.id} /></Panel>}
+      {tab === "attendance" && <Panel><AttendanceModule userId={e.id} /></Panel>}
+      {tab === "requests" && <Panel><RequestsModule userId={e.id} /></Panel>}
+      {tab === "payslips" && <Panel><PayslipsModule userId={e.id} /></Panel>}
       <EmployeeFormDialog open={edit} onOpenChange={setEdit} employee={e} onSaved={setE} />
       <ResetPasswordDialog open={reset} onOpenChange={setReset} employee={e} />
       <SlipsPreview data={slips} onClose={() => setSlips(null)} />

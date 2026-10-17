@@ -54,6 +54,9 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Service Book admin tab (/admin/service-book): employee picker, header summary, service entries, performance appraisals (6 criteria 1-5 stars, score, grade, recommendation), leave balance; employee sees appraisals on Profile
 - Tested: iteration_5 backend 15/15, frontend 100%
 
+## Implemented (2026-10-17, iteration 9)
+- Employee record redesign (shared EmployeeRecord used by /admin/employees/:id and Service Book tab): hero (photo, name, badges) + separate action toolbar (Portal Live/Unlive, Edit details, Reset password, Print slip, Delete) + facts row; tabs: Profile, Salary & Leave, Service Book, Appraisals, Attendance (month, present/late/hours), Requests, Payslips
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)
