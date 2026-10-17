@@ -8,7 +8,7 @@ const Brand = ({ area }) => (
   <div className="flex items-center gap-3">
     <div className="h-9 w-9 rounded-lg bg-primary grid place-items-center text-white"><Fingerprint size={20} /></div>
     <div className="leading-tight">
-      <div className="font-display font-bold text-lg tracking-tight">WorkPulse</div>
+      <div className="font-display font-bold text-lg tracking-tight">ARUN ENTERPRISES</div>
       <div className="text-[10px] uppercase tracking-[0.2em] opacity-60">{area}</div>
     </div>
   </div>
