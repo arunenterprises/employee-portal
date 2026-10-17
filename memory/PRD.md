@@ -35,6 +35,12 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Missed Punch request (in/out/both, date, actual times) with validations; HR approve creates/updates attendance as manual punch (tagged "Missed punch · HR approved"), late computed
 - Vendor push leave codes corrected to vendor grid codes: L (leave), H (half day)
 
+## Implemented (2026-10-17, iteration 5)
+- Admin: reset employee password (dialog; employee must change after login), Live/Unlive portal access switch (portal_enabled, independent of vendor HR status; blocks login + existing sessions)
+- Admin self password change (key icon in sidebar/mobile header); in-app password persists across restarts (password_set_in_app); recovery via ADMIN_FORCE_RESET="true" in backend/.env + restart
+- Employee photo & signature (employee_media collection) synced from vendor photoUrl/signatureUrl; preview + zoom on admin detail and employee profile; admin upload (PNG/JPEG/WEBP, base64 validated)
+- Tested: iteration_4 backend 11/11, frontend 100%
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

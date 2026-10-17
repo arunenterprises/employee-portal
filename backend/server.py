@@ -327,8 +327,13 @@ async def upload_employee_media(emp_id: str, body: MediaIn, admin: dict = Depend
     for k in ("photo", "signature"):
         v = getattr(body, k)
         if v is not None:
-            if not v.startswith("data:image/") or len(v) > 800_000:
-                raise HTTPException(status_code=400, detail=f"Invalid {k} image (max ~500 KB)")
+            m = re.match(r"^data:image/(png|jpeg|webp);base64,(.+)$", v)
+            try:
+                ok = bool(m) and len(v) <= 800_000 and base64.b64decode(m.group(2), validate=True)
+            except Exception:
+                ok = False
+            if not ok:
+                raise HTTPException(status_code=400, detail=f"Invalid {k} image (PNG/JPEG/WEBP, max ~500 KB)")
             upd[k] = v
     if not upd:
         raise HTTPException(status_code=400, detail="Nothing to upload")
@@ -803,7 +808,7 @@ async def startup():
     existing = await db.users.find_one({"email": email})
     if existing is None:
         await db.users.insert_one({"email": email, "password_hash": hash_password(pwd), "name": "Admin", "role": "admin", "active": True, "created_at": now_utc()})
-    elif not existing.get("password_set_in_app") and not verify_password(pwd, existing["password_hash"]):
+    elif (os.environ.get("ADMIN_FORCE_RESET") == "true" or not existing.get("password_set_in_app")) and not verify_password(pwd, existing["password_hash"]):
         await db.users.update_one({"_id": existing["_id"]}, {"$set": {"password_hash": hash_password(pwd)}})
 
 

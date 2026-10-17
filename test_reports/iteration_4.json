@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 4: tested admin reset-password, portal Live/Unlive access, admin change-password dialog (desktop + mobile) with persistence across a backend restart, and photo/signature media (admin + employee). Backend 11/11 pytest pass plus a curl restart-persistence check. All frontend flows passed. Only TEST_ employees were written to; real AE/EMP employees were only viewed. Vendor sync was not touched. The admin password ends as WorkPulse@2026 (checked against the DB bcrypt hash).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "pre-test environment state", "issue": "At the start of testing, admin login with WorkPulse@2026 returned 401. The DB admin doc had password_set_in_app=True and a hash that did not match WorkPulse@2026, so the startup seed could no longer restore it. The cause is almost certainly a change-password test by the main agent that did not revert the password. The testing agent reset the hash directly in Mongo to WorkPulse@2026. Note: because password_set_in_app is permanent, ADMIN_PASSWORD in .env can no longer recover a forgotten admin password. Consider a documented recovery path (e.g. an env flag ADMIN_FORCE_RESET)."},
+      {"endpoint": "POST /api/admin/employees/{id}/media", "issue": "Validation only checks the 'data:image/' prefix and length. 'data:image/png;base64,<garbage>' and data:image/svg+xml are accepted. Low risk (rendered in <img>), but consider allowing only png/jpeg/webp and checking that the base64 decodes."},
+      {"endpoint": "POST /api/auth/change-password", "issue": "No brute-force throttle on wrong current_password (login has a 5-attempt lockout; this endpoint does not)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin employee detail - Service record form", "issues": ["sr-date uses the browser's native date input instead of the shadcn Calendar/Popover (carried over from earlier iterations)"]},
+      {"screen": "Mobile dialogs (admin-change-password-dialog)", "issues": ["On a 390px screen the dialog is almost edge-to-edge with square corners. Add a mx-4 / rounded-lg margin on mobile."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_access_media_passwords.py", "/app/test_reports/pytest/pytest_iter4.xml"],
+  "action_items": [
+    "Do not leave the admin password changed after self-tests. It was found not matching WorkPulse@2026 and was restored by the testing agent.",
+    "Optional: tighten media MIME validation (png/jpeg/webp only, decode base64).",
+    "Optional: rate-limit wrong current_password attempts on /api/auth/change-password.",
+    "Optional: replace the native date input in the service-record form with the shadcn Calendar."
+  ],
+  "critical_code_review_comments": [
+    "Seed logic: once password_set_in_app=True, the .env ADMIN_PASSWORD is ignored forever. This is intended, but there is no recovery path if the admin forgets the password.",
+    "reset-password correctly sets must_change_password=True and clears login_attempts; access PATCH immediately invalidates existing tokens via current_user's portal_enabled check. Good.",
+    "Media is stored as base64 in employee_media (up to 800KB each); the employees list does not include media, so list payloads stay small. Good.",
+    "test_access_media_passwords.py uses a module-scoped fixture shared across classes in order. Run it with -n 0 (serial), because pytest.ini's xdist loadscope may split the classes across workers."
+  ],
+  "updated_files": ["/app/backend/tests/test_access_media_passwords.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created TEST_AM* (pytest) and TEST_UI4 (UI) employees; all deleted. Admin password hash was reset in the DB to WorkPulse@2026 before testing; the final state is WorkPulse@2026 (checked against the bcrypt hash).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Verified: table switch toggles without navigating; detail portal-access-control shows Live/Unlive; reset-password -> employee login shows change-password-banner -> profile change-password clears the banner; employee profile shows the media card without upload inputs; real employee AE/EMP/000005/26-27 (id 6ad3b3e57a29e0af5f53edca) has vendor photo (1022x1242) and signature, and the view dialog works; admin change-password works on desktop and mobile; an in-app admin password survives a backend restart. Run the new test file with -n 0. Never toggle, reset or upload on real employees and never call vendor-sync."
+}
