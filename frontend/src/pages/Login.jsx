@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Camera, MapPin, FileCheck2, Loader2, Building2, Phone, Mail } from "lucide-react";
+import { Camera, MapPin, FileCheck2, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/common";
@@ -8,31 +8,22 @@ import { useAuth } from "@/context/AuthContext";
 import { errMsg } from "@/lib/api";
 
 const FEATURES = [
-  [Camera, "Selfie attendance", "Punch in & out with a photo"],
-  [MapPin, "GPS verified", "Location saved with every punch"],
-  [FileCheck2, "Requests & payslips", "Leave, advance, payslip — all in one place"],
+  [Camera, "Attendance", "Selfie punch"],
+  [MapPin, "GPS", "Live location"],
+  [FileCheck2, "Requests", "Leave / Payslip"],
 ];
 
-const COMPANY = {
-  name: "ARUN ENTERPRISES",
-  address: "[Company Address, City, State - PIN]",
-  phone: "[+91 XXXXX XXXXX]",
-  email: "arunenterprises2023@gmail.com",
-};
+const ADDRESS = "209H/1F/1, Ops Nagar, Kalindipuram, Prayagraj, UP 211011";
+const PHONE = "9429694552";
+const EMAIL = "info@arunenterprises.online";
+const WEB = "www.arunenterprises.com.in";
 
-const CompanyCard = ({ compact }) => (
-  <div className="rise" data-testid="login-company-card">
-    <div className="flex items-center gap-4">
-      <div className={`${compact ? "h-11 w-11" : "h-14 w-14"} rounded-xl bg-primary grid place-items-center shrink-0 ring-4 ring-primary/20`}><Building2 size={compact ? 22 : 28} /></div>
-      <div>
-        <div className={`font-display font-extrabold tracking-tight leading-none ${compact ? "text-xl" : "text-2xl"}`} data-testid="login-company-name">{COMPANY.name}</div>
-        <div className="text-[10px] uppercase tracking-[0.25em] text-blue-300 font-semibold mt-1.5">Employee & HR Portal</div>
-      </div>
-    </div>
-    <div className={`mt-5 pt-4 border-t border-white/10 grid gap-2.5 text-sm text-slate-300 ${compact ? "" : "max-w-sm"}`}>
-      <div className="flex items-start gap-2.5" data-testid="login-company-address"><MapPin size={15} className="mt-0.5 shrink-0 text-blue-300" />{COMPANY.address}</div>
-      <a href={`tel:${COMPANY.phone}`} className="flex items-center gap-2.5 hover:text-white transition-colors" data-testid="login-company-phone"><Phone size={15} className="shrink-0 text-blue-300" />{COMPANY.phone}</a>
-      <a href={`mailto:${COMPANY.email}`} className="flex items-center gap-2.5 hover:text-white transition-colors break-all" data-testid="login-company-email"><Mail size={15} className="shrink-0 text-blue-300" />{COMPANY.email}</a>
+const Brand = ({ light }) => (
+  <div className="flex items-center gap-4" data-testid="login-company-card">
+    <img src="/arun-logo.jpg" alt="Arun Enterprises logo" className="h-14 w-14 rounded-xl object-contain p-1 bg-white shrink-0 ring-1 ring-slate-200" />
+    <div>
+      <div className={`font-display text-2xl tracking-tight ${light ? "text-slate-900 font-bold" : "font-semibold"}`} data-testid="login-company-name">ARUN ENTERPRISES</div>
+      <div className={`text-[10px] uppercase tracking-[0.2em] mt-1 ${light ? "text-slate-500" : "text-slate-300"}`}>Our quality oriented service's is first priority</div>
     </div>
   </div>
 );
@@ -62,32 +53,38 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.1fr_1fr]">
-      <section className="hidden lg:flex flex-col justify-between bg-[hsl(var(--sidebar))] text-white p-14 grid-bg">
-        <CompanyCard />
-        <div className="max-w-md">
-          <div className="text-xs uppercase tracking-[0.25em] text-blue-300 font-semibold mb-4">Employee Self-Service</div>
-          <h1 className="text-5xl font-extrabold tracking-tight leading-[1.05]">Your work life,<br />one tap away.</h1>
-          <ul className="mt-10 space-y-5">
+    <div className="min-h-screen grid lg:grid-cols-[1.05fr_1fr]">
+      <section className="hidden lg:flex flex-col justify-between text-white p-14 bg-gradient-to-br from-[#0b1a3a] via-[#0f2350] to-[#0b1a3a]">
+        <Brand />
+        <div className="text-center rise">
+          <h1 className="text-6xl font-semibold tracking-tight">Employee Portal</h1>
+          <div className="text-3xl tracking-[0.12em] text-blue-400 mt-4 font-display">FOR ARUN ENTERPRISES</div>
+          <div className="h-px w-20 bg-blue-500/60 mx-auto my-8" />
+          <p className="text-lg text-slate-200">Attendance, service record, leave and payslips in one place.</p>
+          <div className="flex justify-center gap-10 mt-12 text-left">
             {FEATURES.map(([Icon, t, d], i) => (
-              <li key={t} className="flex gap-4 rise" style={{ animationDelay: `${i * 90}ms` }}>
-                <div className="h-10 w-10 rounded-lg bg-white/10 grid place-items-center shrink-0"><Icon size={18} /></div>
-                <div><div className="font-semibold">{t}</div><div className="text-sm text-slate-400">{d}</div></div>
-              </li>
+              <div key={t} className="border-l-2 border-blue-500/70 pl-3 rise" style={{ animationDelay: `${i * 90}ms` }}>
+                <Icon size={18} className="text-blue-300 mb-2" />
+                <div className="font-semibold">{t}</div>
+                <div className="text-sm text-slate-400">{d}</div>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
-        <div className="text-xs text-slate-500">Secure access for employees & HR</div>
+        <div className="text-sm text-slate-400 leading-relaxed" data-testid="login-company-address">
+          {ADDRESS}<br />Toll Free: <a href={`tel:${PHONE}`} className="hover:text-white">{PHONE}</a> · <a href={`mailto:${EMAIL}`} className="hover:text-white">{EMAIL}</a> · {WEB}
+        </div>
       </section>
 
-      <section className="flex items-center justify-center p-6 sm:p-12">
-        <form onSubmit={submit} className="w-full max-w-sm space-y-6 rise" data-testid="login-form">
-          <div className="lg:hidden rounded-2xl bg-[hsl(var(--sidebar))] text-white p-5 grid-bg"><CompanyCard compact /></div>
+      <section className="flex flex-col items-center justify-center p-6 sm:p-12">
+        <form onSubmit={submit} className="w-full max-w-md space-y-6 rise" data-testid="login-form">
+          <div className="lg:hidden mb-4"><Brand light /></div>
           <div>
-            <h2 className="text-3xl font-extrabold tracking-tight">Sign in</h2>
-            <p className="text-sm text-muted-foreground mt-2">Use your email or Employee ID provided by HR.</p>
+            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-semibold text-primary mb-3"><Lock size={14} />Secure access</div>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Sign in to your portal</h2>
+            <p className="text-sm text-muted-foreground mt-2">Use your Employee Code / Email provided by HR.</p>
           </div>
-          <Field label="Email or Employee ID">
+          <Field label="Employee Code / Email">
             <Input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="EMP001 or you@company.com" className="h-11" data-testid="login-email-input" />
           </Field>
           <Field label="Password">
@@ -98,6 +95,9 @@ export default function Login() {
             {busy && <Loader2 size={16} className="mr-2 animate-spin" />}Sign in
           </Button>
           <p className="text-xs text-muted-foreground">Forgot password? Contact your HR / admin to reset it.</p>
+          <div className="border-t pt-6 text-center text-xs text-slate-400 leading-relaxed" data-testid="login-footer-address">
+            {ADDRESS}<br />Toll Free: {PHONE} · {EMAIL}
+          </div>
         </form>
       </section>
     </div>
