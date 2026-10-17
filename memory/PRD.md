@@ -61,6 +61,9 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Attendance monthly sheet (Admin > Attendance > Monthly sheet): employees x days grid merging HR Management (vendor) attendance (pulled into vendor_attendance during sync) + portal punches + approved leaves; codes P/A/L/H/W/HL, late dot, portal-punch marker, totals; "Pull from HR Management" button
 - Instant push: portal punch-in/out and approved leave/missed-punch of vendor-linked employees push immediately to vendor (background), hourly sync as fallback
 
+## Implemented (2026-10-17, iteration 11)
+- Monthly sheet "Export Excel (CSV)" button: UTF-8 BOM CSV (attendance-sheet-YYYY-MM.csv) with Employee Code, Name, per-day codes (Late suffix), P/A/L/H/HL/W totals, Late Days, Paid Days = P+L+HL+W+H/2
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

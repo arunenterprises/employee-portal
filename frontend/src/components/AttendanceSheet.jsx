@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,25 @@ const CODES = {
 const TOTAL_KEYS = ["P", "A", "L", "H"];
 
 const tip = (c) => [CODES[c.code]?.[0] || c.code, c.in && `In ${fmtTime(c.in)}`, c.out && `Out ${fmtTime(c.out)}`, c.late && `Late ${c.late}m`, c.manual && "Missed punch (HR)", c.note, c.source === "hr" ? "From HR Management" : c.source === "portal" ? "Portal punch" : ""].filter(Boolean).join(" · ");
+
+const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+const exportCsv = (data, month, days) => {
+  const head = ["Employee Code", "Name", ...days.map((d) => `${month}-${d}`), ...TOTAL_KEYS, "HL", "W", "Late Days", "Paid Days (P+L+HL+W+H/2)"];
+  const lines = data.rows.map((r) => {
+    const t = r.totals;
+    const cnt = (k) => Object.values(r.cells).filter((c) => c?.code === k).length;
+    const hl = cnt("HL"), w = cnt("W");
+    const paid = (t.P || 0) + (t.L || 0) + hl + w + (t.H || 0) / 2;
+    return [r.employee_id, r.name, ...days.map((d) => { const c = r.cells[d]; return c ? `${c.code}${c.late > 0 ? " (Late)" : ""}` : ""; }), ...TOTAL_KEYS.map((k) => t[k] || 0), hl, w, t.late || 0, paid];
+  });
+  const csv = "\ufeff" + [head, ...lines].map((row) => row.map(esc).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `attendance-sheet-${month}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 const Cell = ({ c }) => {
   if (!c) return <td className="border px-0 py-0 h-9 min-w-[34px]" />;
@@ -52,6 +71,7 @@ export default function AttendanceSheet() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="sm:w-48" data-testid="sheet-month" />
         <Button variant="outline" onClick={pull} disabled={busy} data-testid="sheet-pull-btn"><RefreshCw size={15} className={`mr-2 ${busy ? "animate-spin" : ""}`} />{busy ? "Pulling…" : "Pull from HR Management"}</Button>
+        <Button variant="outline" onClick={() => exportCsv(data, month, days)} disabled={!data?.rows?.length} data-testid="sheet-export-btn"><Download size={15} className="mr-2" />Export Excel (CSV)</Button>
         <span className="text-xs text-muted-foreground sm:ml-auto" data-testid="sheet-last-sync">{data?.last_sync ? `Last sync ${new Date(data.last_sync).toLocaleString("en-IN")}` : "Not synced yet"} · auto every hour · portal punches update both instantly</span>
       </div>
       <div className="flex flex-wrap gap-2 mb-4 text-xs" data-testid="sheet-legend">
