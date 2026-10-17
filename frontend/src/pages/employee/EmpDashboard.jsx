@@ -4,6 +4,7 @@ import { CalendarCheck2, Hourglass, Plane, Wallet, LogIn, LogOut, CheckCircle2, 
 import { Button } from "@/components/ui/button";
 import { Panel, StatCard, StatusBadge, Empty } from "@/components/common";
 import PunchDialog from "@/components/PunchDialog";
+import { BalanceCards } from "@/components/LeaveBalance";
 import { useAuth } from "@/context/AuthContext";
 import { api, fmtTime, fmtLate, fmtINR, fmtHours, monthLabel, fmtDate } from "@/lib/api";
 
@@ -88,6 +89,7 @@ export default function EmpDashboard() {
   const [reqs, setReqs] = useState([]);
   const [mode, setMode] = useState(null);
   const [cfg, setCfg] = useState(null);
+  const [bal, setBal] = useState(null);
 
   useEffect(() => { api.get("/attendance/config").then((r) => setCfg(r.data)); }, []);
 
@@ -95,6 +97,7 @@ export default function EmpDashboard() {
     api.get("/attendance/today").then((r) => setToday(r.data));
     api.get("/me/summary").then((r) => setSum(r.data));
     api.get("/requests").then((r) => setReqs(r.data.slice(0, 4)));
+    api.get("/leave-balance").then((r) => setBal(r.data));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -137,6 +140,11 @@ export default function EmpDashboard() {
           ) : <p className="text-sm text-muted-foreground flex items-center gap-2"><Wallet size={16} />No payslip published yet.</p>}
         </Panel>
       </div>
+
+      <Panel className="rise" data-testid="dashboard-leave-balance">
+        <h3 className="font-display text-lg font-semibold mb-4">Leave balance ({new Date().getFullYear()})</h3>
+        <BalanceCards data={bal} />
+      </Panel>
 
       <Panel className="rise">
         <div className="flex items-center justify-between mb-4">

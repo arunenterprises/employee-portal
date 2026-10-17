@@ -14,10 +14,18 @@ export default function RequestFormDialog({ open, initialType, onOpenChange, onS
   const [type, setType] = useState(initialType || "leave");
   const [f, setF] = useState(EMPTY);
   const [busy, setBusy] = useState(false);
+  const [bal, setBal] = useState(null);
 
   useEffect(() => {
     if (open) { setType(initialType || "leave"); setF(EMPTY); }
   }, [open, initialType]);
+
+  const balYear = (f.start_date || localDate()).slice(0, 4);
+  useEffect(() => {
+    if (open && type === "leave") api.get("/leave-balance", { params: { year: balYear } }).then((r) => setBal(r.data));
+  }, [open, type, balYear]);
+  const balType = f.leave_type === "Half Day" ? "Casual Leave" : f.leave_type;
+  const row = bal?.configured ? bal.balances.find((b) => b.leave_type === balType) : null;
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
@@ -58,6 +66,11 @@ export default function RequestFormDialog({ open, initialType, onOpenChange, onS
                   {LEAVE_TYPES.map((t) => <option key={t}>{t}</option>)}
                 </NativeSelect>
               </Field>
+              {row && (
+                <div className={`rounded-lg px-3 py-2 text-sm ${row.available - row.pending > 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"}`} data-testid="leave-available-info">
+                  {balType} available: <span className="font-semibold">{row.available - row.pending}</span> day(s) of {row.allotted}{row.pending ? ` (pending ${row.pending})` : ""}{f.leave_type === "Half Day" ? " · Half Day uses 0.5 CL per day" : ""}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <Field label="From"><Input type="date" required value={f.start_date} onChange={set("start_date")} data-testid="leave-start-date" /></Field>
                 <Field label="To"><Input type="date" required value={f.end_date} onChange={set("end_date")} data-testid="leave-end-date" /></Field>

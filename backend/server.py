@@ -270,7 +270,7 @@ async def delete_employee(emp_id: str, admin: dict = Depends(admin_user)):
     res = await db.users.delete_one({"_id": oid(emp_id), "role": "employee"})
     if not res.deleted_count:
         raise HTTPException(status_code=404, detail="Employee not found")
-    for col in (db.service_records, db.attendance, db.requests, db.payslips, db.employee_media):
+    for col in (db.service_records, db.attendance, db.requests, db.payslips, db.employee_media, db.leave_balances, db.leave_adjustments, db.appraisals):
         await col.delete_many({"user_id": emp_id})
     return {"ok": True}
 
@@ -585,7 +585,8 @@ async def create_request(body: RequestIn, user: dict = Depends(employee_user)):
             raise HTTPException(status_code=400, detail="Valid start and end dates are required")
         if e < s:
             raise HTTPException(status_code=400, detail="End date cannot be before start date")
-        data["days"] = (e - s).days + 1
+        data["days"] = ((e - s).days + 1) * (0.5 if body.leave_type == "Half Day" else 1)
+        await check_leave_balance(user["id"], body.start_date[:4], body.leave_type, data["days"], include_pending=True)
     elif body.type == "advance" and body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
     elif body.type == "payslip":
@@ -631,11 +632,173 @@ async def decide_request(req_id: str, body: DecisionIn, admin: dict = Depends(ad
         raise HTTPException(status_code=400, detail="Request not found or already decided")
     if body.status == "approved" and req["type"] == "missed_punch":
         await apply_missed_punch(req)
+    if body.status == "approved" and req["type"] == "leave":
+        await check_leave_balance(req["user_id"], req["start_date"][:4], req.get("leave_type"), req.get("days", 0), include_pending=False)
     await db.requests.update_one(
         {"_id": req["_id"]},
         {"$set": {"status": body.status, "admin_comment": body.admin_comment, "decided_at": now_utc()}},
     )
     return ser(await db.requests.find_one({"_id": req["_id"]}))
+
+
+# ---------- leave balance ----------
+TRACKED_LEAVES = ["Casual Leave", "Sick Leave", "Earned Leave"]
+
+
+def bal_type(lt: str) -> str:
+    return "Casual Leave" if lt == "Half Day" else lt
+
+
+async def compute_balance(uid: str, year: str) -> dict:
+    doc = await db.leave_balances.find_one({"user_id": uid, "year": year}) or {}
+    quotas = doc.get("quotas") or {}
+    adjs = await db.leave_adjustments.find({"user_id": uid, "year": year}).sort("created_at", -1).to_list(500)
+    reqs = await db.requests.find({"user_id": uid, "type": "leave", "status": {"$in": ["approved", "pending"]}, "start_date": {"$regex": f"^{year}"}}).to_list(1000)
+    out = []
+    for lt in TRACKED_LEAVES:
+        adj = sum(a["days"] for a in adjs if a["leave_type"] == lt)
+        used = sum(r.get("days", 0) for r in reqs if r["status"] == "approved" and bal_type(r.get("leave_type")) == lt)
+        pending = sum(r.get("days", 0) for r in reqs if r["status"] == "pending" and bal_type(r.get("leave_type")) == lt)
+        quota = float(quotas.get(lt, 0))
+        out.append({"leave_type": lt, "quota": quota, "adjustment": adj, "allotted": quota + adj, "used": used, "pending": pending, "available": quota + adj - used})
+    return {"year": year, "configured": bool(doc), "balances": out, "adjustments": [ser(a) for a in adjs]}
+
+
+async def check_leave_balance(uid: str, year: str, leave_type: str, days: float, include_pending: bool):
+    lt = bal_type(leave_type)
+    if lt not in TRACKED_LEAVES:
+        return
+    b = await compute_balance(uid, year)
+    if not b["configured"]:
+        return
+    row = next(x for x in b["balances"] if x["leave_type"] == lt)
+    free = row["available"] - (row["pending"] if include_pending else 0)
+    if days > free:
+        raise HTTPException(status_code=400, detail=f"Insufficient {lt} balance. Available: {free:g} day(s), requested: {days:g}")
+
+
+class QuotaIn(BaseModel):
+    year: str = Field(pattern=r"^\d{4}$")
+    quotas: dict
+    apply_to_all: bool = False
+
+
+class AdjustIn(BaseModel):
+    year: str = Field(pattern=r"^\d{4}$")
+    leave_type: Literal["Casual Leave", "Sick Leave", "Earned Leave"]
+    days: float
+    reason: str = Field(min_length=1)
+
+
+def this_year() -> str:
+    return today_str()[:4]
+
+
+@api.get("/leave-balance")
+async def my_leave_balance(year: Optional[str] = None, user: dict = Depends(employee_user)):
+    return await compute_balance(user["id"], year or this_year())
+
+
+@api.get("/admin/leave-balance/{emp_id}")
+async def admin_leave_balance(emp_id: str, year: Optional[str] = None, admin: dict = Depends(admin_user)):
+    await get_emp_or_404(emp_id)
+    return await compute_balance(emp_id, year or this_year())
+
+
+@api.put("/admin/leave-balance/{emp_id}")
+async def set_leave_quota(emp_id: str, body: QuotaIn, admin: dict = Depends(admin_user)):
+    await get_emp_or_404(emp_id)
+    quotas = {}
+    for lt in TRACKED_LEAVES:
+        try:
+            v = float(body.quotas.get(lt, 0) or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"Invalid quota for {lt}")
+        if v < 0 or v > 365:
+            raise HTTPException(status_code=400, detail=f"Quota for {lt} must be 0-365")
+        quotas[lt] = v
+    ids = [emp_id]
+    if body.apply_to_all:
+        ids = [str(d["_id"]) for d in await db.users.find({"role": "employee"}, {"_id": 1}).to_list(5000)]
+    for uid in ids:
+        await db.leave_balances.update_one({"user_id": uid, "year": body.year}, {"$set": {"quotas": quotas, "updated_at": now_utc()}}, upsert=True)
+    return await compute_balance(emp_id, body.year) | {"applied_to": len(ids)}
+
+
+@api.post("/admin/leave-balance/{emp_id}/adjust")
+async def adjust_leave(emp_id: str, body: AdjustIn, admin: dict = Depends(admin_user)):
+    await get_emp_or_404(emp_id)
+    if body.days == 0 or abs(body.days) > 365:
+        raise HTTPException(status_code=400, detail="Adjustment days must be non-zero (max 365)")
+    if not await db.leave_balances.find_one({"user_id": emp_id, "year": body.year}):
+        await db.leave_balances.insert_one({"user_id": emp_id, "year": body.year, "quotas": {}, "updated_at": now_utc()})
+    await db.leave_adjustments.insert_one(body.model_dump() | {"user_id": emp_id, "created_at": now_utc()})
+    return await compute_balance(emp_id, body.year)
+
+
+@api.delete("/admin/leave-adjustments/{adj_id}")
+async def delete_adjustment(adj_id: str, admin: dict = Depends(admin_user)):
+    res = await db.leave_adjustments.delete_one({"_id": oid(adj_id)})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Adjustment not found")
+    return {"ok": True}
+
+
+# ---------- performance appraisals ----------
+CRITERIA = ["Work Quality", "Punctuality", "Teamwork", "Communication", "Initiative", "Discipline"]
+
+
+def grade_for(score: float) -> str:
+    for cut, g in ((4.5, "Outstanding"), (3.5, "Very Good"), (2.5, "Good"), (1.5, "Needs Improvement")):
+        if score >= cut:
+            return g
+    return "Poor"
+
+
+class AppraisalIn(BaseModel):
+    user_id: str
+    period: str = Field(min_length=1)
+    review_date: str
+    ratings: dict
+    reviewer: str = ""
+    strengths: str = ""
+    improvements: str = ""
+    remarks: str = ""
+    recommendation: Literal["none", "increment", "promotion", "training", "pip"] = "none"
+
+
+@api.post("/admin/appraisals")
+async def add_appraisal(body: AppraisalIn, admin: dict = Depends(admin_user)):
+    await get_emp_or_404(body.user_id)
+    try:
+        date_cls.fromisoformat(body.review_date)
+        ratings = {c: int(body.ratings[c]) for c in CRITERIA}
+    except (ValueError, KeyError, TypeError):
+        raise HTTPException(status_code=400, detail="Valid review date and a rating for every criterion are required")
+    if any(not 1 <= v <= 5 for v in ratings.values()):
+        raise HTTPException(status_code=400, detail="Ratings must be between 1 and 5")
+    score = round(sum(ratings.values()) / len(ratings), 1)
+    data = body.model_dump() | {"ratings": ratings, "score": score, "grade": grade_for(score), "created_at": now_utc()}
+    res = await db.appraisals.insert_one(data)
+    return ser(await db.appraisals.find_one({"_id": res.inserted_id}))
+
+
+@api.get("/admin/appraisals")
+async def list_appraisals(user_id: str, admin: dict = Depends(admin_user)):
+    return [ser(d) for d in await db.appraisals.find({"user_id": user_id}).sort("review_date", -1).to_list(200)]
+
+
+@api.delete("/admin/appraisals/{ap_id}")
+async def delete_appraisal(ap_id: str, admin: dict = Depends(admin_user)):
+    res = await db.appraisals.delete_one({"_id": oid(ap_id)})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Appraisal not found")
+    return {"ok": True}
+
+
+@api.get("/appraisals")
+async def my_appraisals(user: dict = Depends(employee_user)):
+    return [ser(d) for d in await db.appraisals.find({"user_id": user["id"]}).sort("review_date", -1).to_list(200)]
 
 
 # ---------- payslips ----------

@@ -3,6 +3,7 @@ import { PageHeader, Panel, Info } from "@/components/common";
 import ServiceTimeline from "@/components/ServiceTimeline";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 import MediaCard from "@/components/MediaCard";
+import { AppraisalList } from "@/components/Appraisals";
 import { useAuth } from "@/context/AuthContext";
 import { api, fmtDate, fmtINR } from "@/lib/api";
 
@@ -10,10 +11,12 @@ export default function EmpProfile() {
   const { user: u } = useAuth();
   const [records, setRecords] = useState([]);
   const [media, setMedia] = useState(null);
+  const [apps, setApps] = useState([]);
 
   useEffect(() => {
     api.get("/service-records").then((r) => setRecords(r.data));
     api.get("/me/media").then((r) => setMedia(r.data));
+    api.get("/appraisals").then((r) => setApps(r.data));
   }, []);
 
   const groups = [
@@ -34,6 +37,7 @@ export default function EmpProfile() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">{items.map(([l, v]) => <Info key={l} label={l} value={v} />)}</div>
             </Panel>
           ))}
+          <Panel className="rise" data-testid="profile-appraisals"><h3 className="font-display text-lg font-semibold mb-5">Performance appraisals</h3><AppraisalList items={apps} /></Panel>
         </div>
         <div className="space-y-6">
           <Panel className="rise"><h3 className="font-display text-lg font-semibold mb-4">Photo & signature</h3><MediaCard media={media} /></Panel>

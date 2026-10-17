@@ -1,6 +1,6 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { LayoutDashboard, UserRound, CalendarClock, FileText, Wallet, Users, Inbox } from "lucide-react";
+import { LayoutDashboard, UserRound, CalendarClock, FileText, Wallet, Users, Inbox, BookOpen } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import AppShell from "@/components/AppShell";
@@ -16,6 +16,7 @@ import AdminEmployeeDetail from "@/pages/admin/AdminEmployeeDetail";
 import AdminAttendance from "@/pages/admin/AdminAttendance";
 import AdminRequests from "@/pages/admin/AdminRequests";
 import AdminPayslips from "@/pages/admin/AdminPayslips";
+import AdminServiceBook from "@/pages/admin/AdminServiceBook";
 
 const EMP_NAV = [
   { key: "home", to: "/employee", label: "Home", icon: LayoutDashboard, end: true },
@@ -28,6 +29,7 @@ const EMP_NAV = [
 const ADMIN_NAV = [
   { key: "home", to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { key: "employees", to: "/admin/employees", label: "Employees", icon: Users },
+  { key: "service-book", to: "/admin/service-book", label: "Service Book", icon: BookOpen },
   { key: "attendance", to: "/admin/attendance", label: "Attendance", icon: CalendarClock },
   { key: "requests", to: "/admin/requests", label: "Requests", icon: Inbox },
   { key: "payslips", to: "/admin/payslips", label: "Payslips", icon: Wallet },
@@ -74,6 +76,7 @@ function App() {
               <Route path="attendance" element={<AdminAttendance />} />
               <Route path="requests" element={<AdminRequests />} />
               <Route path="payslips" element={<AdminPayslips />} />
+              <Route path="service-book" element={<AdminServiceBook />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

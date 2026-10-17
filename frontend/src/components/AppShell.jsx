@@ -69,10 +69,10 @@ export default function AppShell({ nav, area }) {
         <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10"><Outlet /></div>
       </main>
 
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t grid grid-cols-5">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t grid" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
         {nav.map(({ key, to, label, icon: Icon, end }) => (
           <NavLink key={key} to={to} end={end} data-testid={`mnav-${key}`}
-            className={({ isActive }) => `flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium ${isActive ? "text-primary" : "text-slate-500"}`}>
+            className={({ isActive }) => `flex flex-col items-center gap-1 py-2.5 text-[10px] leading-tight text-center font-medium ${isActive ? "text-primary" : "text-slate-500"}`}>
             <Icon size={20} />{label}
           </NavLink>
         ))}

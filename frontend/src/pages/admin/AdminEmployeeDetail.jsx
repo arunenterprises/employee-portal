@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Pencil, Trash2, KeyRound, Printer } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, KeyRound, Printer, BookOpen } from "lucide-react";
+import { LeaveBalanceAdmin } from "@/components/LeaveBalance";
 import { SlipsPreview, issueSlips } from "@/components/CredentialSlips";
 import MediaCard from "@/components/MediaCard";
 import { ResetPasswordDialog, AccessSwitch } from "@/components/EmployeeAccess";
@@ -16,7 +17,7 @@ import { api, errMsg, fmtDate, fmtINR, localDate } from "@/lib/api";
 
 const TYPES = ["promotion", "transfer", "increment", "appraisal", "training", "award", "joining", "other"];
 
-const AddRecord = ({ userId, onAdded, onCancel }) => {
+export const AddRecord = ({ userId, onAdded, onCancel }) => {
   const [f, setF] = useState({ date: localDate(), type: "promotion", title: "", notes: "" });
   const submit = async (e) => {
     e.preventDefault();
@@ -115,6 +116,7 @@ export default function AdminEmployeeDetail() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-md bg-white/10 px-3 h-10 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal <AccessSwitch employee={e} onChange={setE} /></span>
+            <Button variant="secondary" asChild data-testid="open-service-book-btn"><Link to={`/admin/service-book?id=${e.id}`}><BookOpen size={15} className="mr-2" />Service book</Link></Button>
             <Button variant="secondary" onClick={() => setSlipConfirm(true)} data-testid="print-slip-btn"><Printer size={15} className="mr-2" />Print slip</Button>
             <Button variant="secondary" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={15} className="mr-2" />Reset password</Button>
             <Button variant="secondary" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={15} className="mr-2" />Edit</Button>
@@ -143,6 +145,10 @@ export default function AdminEmployeeDetail() {
           <Panel data-testid="salary-panel">
             <h3 className="font-display text-lg font-semibold mb-4">Salary breakup</h3>
             <SalaryBreakup e={e} wide />
+          </Panel>
+          <Panel data-testid="leave-balance-panel">
+            <h3 className="font-display text-lg font-semibold mb-4">Leave balance</h3>
+            <LeaveBalanceAdmin userId={e.id} />
           </Panel>
         </div>
         <Panel className="self-start xl:sticky xl:top-6" data-testid="service-record-panel">
