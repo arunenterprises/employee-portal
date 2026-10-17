@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { PageHeader, Panel, Info, Field, NativeSelect, Badge2 } from "@/components/common";
+import { Panel, Info, Field, NativeSelect } from "@/components/common";
 import EmployeeFormDialog from "@/components/EmployeeFormDialog";
 import ServiceTimeline from "@/components/ServiceTimeline";
 import SalaryBreakup from "@/components/SalaryBreakup";
-import { api, errMsg, fmtDate, localDate } from "@/lib/api";
+import { api, errMsg, fmtDate, fmtINR, localDate } from "@/lib/api";
 
 const TYPES = ["promotion", "transfer", "increment", "appraisal", "training", "award", "joining", "other"];
 
@@ -27,12 +27,12 @@ const AddRecord = ({ userId, onAdded, onCancel }) => {
     } catch (err) { toast.error(errMsg(err)); }
   };
   return (
-    <form onSubmit={submit} className="mb-6 rounded-lg bg-slate-50 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[160px_160px_1fr_1fr_auto] gap-3 items-end" data-testid="add-service-form">
+    <form onSubmit={submit} className="mb-6 rounded-lg bg-slate-50 p-4 grid grid-cols-2 gap-3" data-testid="add-service-form">
       <Field label="Date"><Input type="date" required value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className="bg-white" data-testid="sr-date" /></Field>
       <Field label="Type"><NativeSelect value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} data-testid="sr-type">{TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}</NativeSelect></Field>
-      <Field label="Title"><Input required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Promoted to Senior Executive" className="bg-white" data-testid="sr-title" /></Field>
-      <Field label="Notes"><Input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} className="bg-white" data-testid="sr-notes" /></Field>
-      <div className="flex gap-2">
+      <Field label="Title" className="col-span-2"><Input required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="e.g. Promoted to Senior Executive" className="bg-white" data-testid="sr-title" /></Field>
+      <Field label="Notes" className="col-span-2"><Input value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} className="bg-white" data-testid="sr-notes" /></Field>
+      <div className="col-span-2 flex gap-2">
         <Button type="submit" data-testid="sr-submit">Save</Button>
         <Button type="button" variant="ghost" onClick={onCancel} data-testid="sr-cancel">Cancel</Button>
       </div>
@@ -82,29 +82,63 @@ export default function AdminEmployeeDetail() {
     </section>
   );
 
+  const live = e.portal_enabled !== false;
+  const gross = (e.basic || 0) + (e.hra || 0) + (e.allowances || 0);
+  const facts = [["Joining date", fmtDate(e.joining_date)], ["Location", e.location], ["Phone", e.phone], ["Gross / month", fmtINR(gross)]];
+
   return (
-    <div>
-      <Link to="/admin/employees" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4" data-testid="back-to-employees"><ArrowLeft size={14} />Employees</Link>
-      <PageHeader eyebrow={e.employee_id} title={e.name}
-        action={<div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-md border bg-white px-3 h-10 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal <AccessSwitch employee={e} onChange={setE} showLabel /></span>
-          <Button variant="outline" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={15} className="mr-2" />Reset password</Button>
-          <Button variant="outline" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={15} className="mr-2" />Edit</Button>
-          <Button variant="outline" onClick={() => setDel(true)} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50" data-testid="delete-employee-btn"><Trash2 size={15} className="mr-2" />Delete</Button>
-        </div>} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Panel className="lg:col-span-2" data-testid="employee-detail-info">
-          <div className="flex items-center justify-between mb-6"><h3 className="font-display text-lg font-semibold">Employee profile</h3><Badge2 tone={e.active !== false ? "approved" : "rejected"}>{e.active !== false ? "Active" : "Inactive"}</Badge2></div>
-          <div className="flex flex-col md:flex-row gap-8">
-            <div className="flex-1 min-w-0 space-y-7">{groups.map(([t, items]) => <Group key={t} title={t} items={items} />)}</div>
-            <div className="md:w-48 shrink-0 md:border-l md:pl-6"><MediaCard media={media} onUpload={uploadMedia} stacked /></div>
+    <div className="space-y-6">
+      <Link to="/admin/employees" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid="back-to-employees"><ArrowLeft size={14} />Employees</Link>
+
+      <section className="rounded-2xl bg-[hsl(var(--sidebar))] text-white grid-bg overflow-hidden rise" data-testid="employee-hero">
+        <div className="p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center gap-6">
+          <div className="flex items-center gap-5 flex-1 min-w-0">
+            {media?.photo
+              ? <img src={media.photo} alt={e.name} className="h-24 w-24 rounded-2xl object-cover ring-4 ring-white/10 shrink-0" data-testid="hero-photo" />
+              : <div className="h-24 w-24 rounded-2xl bg-white/10 grid place-items-center text-3xl font-display font-bold shrink-0">{e.name?.[0]}</div>}
+            <div className="min-w-0">
+              <div className="font-mono text-xs tracking-widest text-blue-300">{e.employee_id}</div>
+              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-1 break-words" data-testid="hero-name">{e.name}</h1>
+              <div className="text-slate-300 mt-1">{[e.designation, e.department].filter(Boolean).join(" · ") || "—"}</div>
+              <div className="flex flex-wrap gap-2 mt-3 text-xs font-semibold">
+                <span className={`rounded-full px-2.5 py-0.5 ${e.active !== false ? "bg-emerald-400/15 text-emerald-300" : "bg-rose-400/15 text-rose-300"}`}>{e.active !== false ? "Active" : "Inactive"}</span>
+                <span className={`rounded-full px-2.5 py-0.5 ${live ? "bg-blue-400/15 text-blue-200" : "bg-rose-400/15 text-rose-300"}`}>Portal {live ? "Live" : "Unlive"}</span>
+                {e.source === "vendor" && <span className="rounded-full px-2.5 py-0.5 bg-white/10 text-slate-200">Vendor HR</span>}
+              </div>
+            </div>
           </div>
-        </Panel>
-        <Panel className="self-start">
-          <h3 className="font-display text-lg font-semibold mb-4">Salary breakup</h3>
-          <SalaryBreakup e={e} />
-        </Panel>
-        <Panel className="lg:col-span-3" data-testid="service-record-panel">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-white/10 px-3 h-10 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal <AccessSwitch employee={e} onChange={setE} /></span>
+            <Button variant="secondary" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={15} className="mr-2" />Reset password</Button>
+            <Button variant="secondary" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={15} className="mr-2" />Edit</Button>
+            <Button variant="secondary" onClick={() => setDel(true)} className="text-rose-600 hover:text-rose-700" data-testid="delete-employee-btn"><Trash2 size={15} className="mr-2" />Delete</Button>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 border-t border-white/10">
+          {facts.map(([l, v], i) => (
+            <div key={l} className={`px-6 sm:px-8 py-4 ${i % 2 ? "border-l" : ""} ${i >= 2 ? "border-t lg:border-t-0" : ""} lg:border-l first:border-l-0 border-white/10`}>
+              <div className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">{l}</div>
+              <div className="font-semibold mt-1 truncate">{v || "—"}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2 space-y-6">
+          <Panel data-testid="employee-detail-info">
+            <h3 className="font-display text-lg font-semibold mb-6">Employee profile</h3>
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="flex-1 min-w-0 space-y-7">{groups.map(([t, items]) => <Group key={t} title={t} items={items} />)}</div>
+              <div className="md:w-48 shrink-0 md:border-l md:pl-6"><MediaCard media={media} onUpload={uploadMedia} stacked /></div>
+            </div>
+          </Panel>
+          <Panel data-testid="salary-panel">
+            <h3 className="font-display text-lg font-semibold mb-4">Salary breakup</h3>
+            <SalaryBreakup e={e} wide />
+          </Panel>
+        </div>
+        <Panel className="self-start xl:sticky xl:top-6" data-testid="service-record-panel">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display text-lg font-semibold">Service record</h3>
             {!adding && <Button size="sm" variant="outline" onClick={() => setAdding(true)} data-testid="sr-open-form">+ Add record</Button>}
