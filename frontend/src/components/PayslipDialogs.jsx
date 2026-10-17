@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Field, NativeSelect } from "@/components/common";
 import { api, errMsg, fmtINR } from "@/lib/api";
 
-const prevMonth = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); };
+const prevMonth = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
 const DEFAULT_DED = ["Provident Fund", "Professional Tax", "TDS", "Advance Recovery"].map((label) => ({ label, amount: 0 }));
 
 const EmployeePicker = ({ employees, value, onChange, testId }) => (

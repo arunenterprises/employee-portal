@@ -137,7 +137,7 @@ class ChangePasswordIn(BaseModel):
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request):
     ident = body.identifier.strip()
-    key = f"{request.client.host if request.client else 'x'}:{ident.lower()}"
+    key = ident.lower()
     att = await db.login_attempts.find_one({"identifier": key})
     locked = att and att.get("count", 0) >= 5 and att["last"] > now_utc() - timedelta(minutes=15)
     if locked:
@@ -195,6 +195,8 @@ class EmployeeIn(BaseModel):
 
 
 async def check_unique(email: str, emp_id: str, exclude: Optional[ObjectId] = None):
+    if not emp_id or "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Valid Employee ID and email are required")
     q = {"$or": [{"email": email}, {"employee_id": emp_id}]}
     if exclude:
         q["_id"] = {"$ne": exclude}
@@ -213,6 +215,9 @@ async def create_employee(body: EmployeeIn, admin: dict = Depends(admin_user)):
     data = body.model_dump()
     data["email"] = data["email"].strip().lower()
     data["employee_id"] = data["employee_id"].strip().upper()
+    data["name"] = data["name"].strip()
+    if not data["name"]:
+        raise HTTPException(status_code=400, detail="Name is required")
     pwd = data.pop("password")
     if not pwd or len(pwd) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
@@ -295,7 +300,9 @@ async def add_service_record(body: ServiceRecordIn, admin: dict = Depends(admin_
 
 @api.delete("/admin/service-records/{rec_id}")
 async def delete_service_record(rec_id: str, admin: dict = Depends(admin_user)):
-    await db.service_records.delete_one({"_id": oid(rec_id)})
+    res = await db.service_records.delete_one({"_id": oid(rec_id)})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Record not found")
     return {"ok": True}
 
 
@@ -308,7 +315,7 @@ class PunchIn(BaseModel):
 
 
 def punch_payload(body: PunchIn) -> dict:
-    if not body.selfie.startswith("data:image/") or len(body.selfie) > 600_000:
+    if not body.selfie.startswith("data:image/") or len(body.selfie) > 200_000:
         raise HTTPException(status_code=400, detail="Invalid selfie image")
     return {"time": now_utc().isoformat(), "selfie": body.selfie, "lat": body.lat, "lng": body.lng, "accuracy": body.accuracy}
 
@@ -358,7 +365,7 @@ async def admin_attendance(date: Optional[str] = None, month: Optional[str] = No
         q["date"] = {"$regex": f"^{month}"}
     if user_id:
         q["user_id"] = user_id
-    docs = await db.attendance.find(q).sort([("date", -1), ("created_at", -1)]).to_list(2000)
+    docs = await db.attendance.find(q).sort([("date", -1), ("created_at", -1)]).to_list(300)
     return await attach_employee([ser(d) for d in docs])
 
 
@@ -393,8 +400,8 @@ async def create_request(body: RequestIn, user: dict = Depends(employee_user)):
         data["days"] = (e - s).days + 1
     elif body.type == "advance" and body.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
-    elif body.type == "payslip" and len(body.month) != 7:
-        raise HTTPException(status_code=400, detail="Select the payslip month")
+    elif body.type == "payslip":
+        valid_month(body.month)
     elif body.type == "other" and not body.subject.strip():
         raise HTTPException(status_code=400, detail="Subject is required")
     data.update({"user_id": user["id"], "status": "pending", "admin_comment": "", "created_at": now_utc(), "decided_at": None})
@@ -533,7 +540,9 @@ async def payslip_pdf(slip_id: str, user: dict = Depends(current_user)):
 
 @api.delete("/admin/payslips/{slip_id}")
 async def delete_payslip(slip_id: str, admin: dict = Depends(admin_user)):
-    await db.payslips.delete_one({"_id": oid(slip_id)})
+    res = await db.payslips.delete_one({"_id": oid(slip_id)})
+    if not res.deleted_count:
+        raise HTTPException(status_code=404, detail="Payslip not found")
     return {"ok": True}
 
 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { api, errMsg } from "@/lib/api";
 
 const toJpeg = (source, w, h) => {
-  const scale = Math.min(1, 360 / w);
+  const scale = Math.min(1, 320 / w);
   const c = document.createElement("canvas");
   c.width = Math.round(w * scale);
   c.height = Math.round(h * scale);

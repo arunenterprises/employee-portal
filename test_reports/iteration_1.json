@@ -1,0 +1,49 @@
+{
+  "summary": "First full e2e test of the WorkPulse Employee Portal + HR Admin. Backend: 27 pytest cases (auth, employee CRUD, service records, attendance punch in/out, requests lifecycle, payslip generate/upload/PDF, RBAC, cascade delete) - 26 pass, 1 fail (brute-force lockout unreliable behind ingress). Frontend (Playwright, desktop 1920 + mobile 390): admin login -> dashboard stats; Add employee dialog (TEST_E01) with joining date auto-creating 'joining' service record; edit employee; add/delete service records; employee login by lowercase Employee ID and uppercase email; punch-in/out via selfie upload fallback with granted geolocation (GPS verified text, confirm disabled until selfie); attendance list with selfie thumbs + Map links; admin attendance date/all-dates/employee filters + selfie viewer; profile with service timeline + change-password error; leave (end<start error toast), advance, payslip, other requests; cancel; status filters; admin approve/reject with comment (employee sees HR comment); generate payslip (net 28,200 computed correctly) auto-approved pending payslip request for same month ('Payslip published'); upload PDF payslip; employee downloads PDF (payslip-2026-09.pdf, %PDF). Mobile bottom nav works for all 5 tabs, no horizontal page overflow, mobile logout works. No JS page errors. All TEST_ data deleted at the end.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login", "issue": "Brute-force lockout is unreliable: attempt key is f'{request.client.host}:{identifier}', and request.client.host is the ingress pod IP (observed 10.4.130.138 and 10.4.130.77 for the same client). Failures are spread over several keys, so the 6th bad attempt still returns 401; in a 14-attempt run 429 only started at attempt 10 and attempt 14 returned 401 again (a different pod's key was not locked). An attacker gets about 5 x N(ingress pods) guesses per window. Fix: key on identifier only (or on the first IP in X-Forwarded-For + identifier).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/admin/attendance, GET /api/attendance", "issue": "Full base64 selfies (each up to 600KB, in and out) come back in list responses, for up to 2000 docs. The admin attendance page will get very heavy as data grows. Suggest leaving selfies out of list responses and serving them from GET /api/attendance/{id}/selfie/{in|out}, or keeping only small thumbnails in lists."},
+      {"endpoint": "CORS", "issue": "CORS_ORIGINS='*' together with allow_credentials=True. Auth uses Bearer tokens so the impact is low, but the auth playbook expects explicit origins."},
+      {"endpoint": "POST /api/admin/employees", "issue": "employee_id, name and email are not validated as non-empty or as a valid email format on the backend (only the frontend 'required' attribute checks them). A second employee with employee_id '' would collide on the unique index."},
+      {"endpoint": "POST /api/requests (payslip)", "issue": "Month is checked only with len==7, not as a real YYYY-MM date (unlike valid_month used for payslips)."},
+      {"endpoint": "DELETE /api/admin/service-records/{id}, DELETE /api/admin/payslips/{id}", "issue": "Return 200 even when the record does not exist (they should return 404)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PayslipDialogs prevMonth()", "issue": "Uses d.toISOString().slice(0,7) after setDate(1). In IST, between 00:00 and 05:30 local time the UTC conversion moves the date back to the previous month, so the default month becomes two months back. Use local getFullYear()/getMonth(), the way localDate() in lib/api.js does.", "selector": "[data-testid='gen-month-input'], [data-testid='upload-month-input']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mobile /employee/attendance", "issues": ["At 390px the attendance table scrolls horizontally inside its card, so the Punch out and Hours columns are hidden off-screen. A stacked card layout per day would work better on mobile."]},
+      {"screen": "Forms (leave dates, service record date, joining date/DOB, admin attendance date, month pickers)", "issues": ["Native browser date/month inputs are used instead of the shadcn Calendar/Popover date picker, so the look is inconsistent with the rest of the UI."]},
+      {"screen": "Admin Employee Detail - Add service record", "issues": ["After adding a record the date and type keep their old values (only title and notes are cleared). Minor."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_employee_portal.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix the login brute-force key so it does not depend on request.client.host (ingress pod IP). Key on the lowercased identifier, optionally plus the X-Forwarded-For client IP.",
+    "Leave selfie base64 out of attendance list responses (lazy-load the selfie per record).",
+    "Fix prevMonth() in PayslipDialogs.jsx so it uses local date parts.",
+    "Add backend validation: non-empty employee_id/name, EmailStr for email, a real YYYY-MM month for payslip requests.",
+    "Optional: set explicit CORS origins; use a mobile card layout for attendance; use the shadcn date picker."
+  ],
+  "critical_code_review_comments": [
+    "server.py login(): lockout keyed on proxy IP. See the backend critical issue.",
+    "server.py punch_payload(): selfies stored inline in the attendance doc and returned in lists. Performance and payload risk.",
+    "server.py decide_request(): does not record which admin decided (decided_by). Useful for an audit trail.",
+    "payslip_pdf.py: the company name and emp fields are passed to reportlab Paragraph/Table. Paragraph parses markup, so '&' or '<' in COMPANY_NAME could break the PDF build. Escape it with xml.sax.saxutils.escape.",
+    "Overall: the code is clean, the files are small (server.py 596 lines), _id is serialized to id, password_hash and pdf_b64 are excluded, RBAC is correct (403 on admin routes for employees; another employee's payslip PDF returns 404), and bcrypt hashes start with $2b$. seed_admin updates the password if it changed."
+  ],
+  "updated_files": ["/app/backend/tests/test_employee_portal.py"],
+  "success_rate": {"backend": "96% (26/27)", "frontend": "100% of tested flows"},
+  "test_credentials": "Admin arunenterprises2023@gmail.com / WorkPulse@2026 (from /app/memory/test_credentials.md) works. Test employees were created with password Passw0rd! and then deleted.",
+  "seed_data_creation": "None left behind. All TEST_ employees, their attendance/requests/payslips, and the bf_ login_attempts were deleted.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=<url> pytest /app/backend/tests/test_employee_portal.py (pytest.ini forces -n 2 --dist loadscope; use -n 0 for serial). Tests self-clean using random TAG suffixes. The only failing test is test_bruteforce_429, which should pass once the lockout key is fixed. UI punch test: grant geolocation in the context, then set_input_files on [data-testid=selfie-file-input] (headless has no camera), then click confirm-punch-btn. Employee/upload selects: gen-employee-select, upload-employee-select. Server clock shows Oct 2026.",
+  "rca of the issue": "Brute force: the Kubernetes ingress has multiple pods, so request.client.host is the pod IP and not the client IP. The login_attempts DB showed two docs for the same identifier ('10.4.130.138:bf_x' count 3 and '10.4.130.77:bf_x' count 3) after 6 failed attempts. Repro: 6 POST /api/auth/login with a wrong password for the same identifier -> all 401. Mitigation: key = identifier.lower() (optionally plus the first X-Forwarded-For IP)."
+}
