@@ -312,15 +312,32 @@ async def delete_service_record(rec_id: str, admin: dict = Depends(admin_user)):
 # ---------- attendance ----------
 class PunchIn(BaseModel):
     selfie: str
-    lat: Optional[float] = None
-    lng: Optional[float] = None
+    lat: float
+    lng: float
     accuracy: Optional[float] = None
+
+
+def punch_windows() -> dict:
+    return {"in": os.environ["PUNCH_IN_WINDOW"].split("-"), "out": os.environ["PUNCH_OUT_WINDOW"].split("-")}
+
+
+def check_window(kind: str):
+    start, end = punch_windows()[kind]
+    now = datetime.now(TZ).strftime("%H:%M")
+    if not (start <= now <= end):
+        label = "Punch In" if kind == "in" else "Punch Out"
+        raise HTTPException(status_code=400, detail=f"{label} is allowed only between {start} and {end}")
 
 
 def punch_payload(body: PunchIn) -> dict:
     if not body.selfie.startswith("data:image/") or len(body.selfie) > 200_000:
         raise HTTPException(status_code=400, detail="Invalid selfie image")
     return {"time": now_utc().isoformat(), "selfie": body.selfie, "lat": body.lat, "lng": body.lng, "accuracy": body.accuracy}
+
+
+@api.get("/attendance/config")
+async def attendance_config(user: dict = Depends(current_user)):
+    return {"windows": punch_windows(), "server_time": now_utc().isoformat(), "timezone": os.environ["APP_TIMEZONE"], "auto_submit_seconds": 30}
 
 
 @api.get("/attendance/today")
@@ -333,6 +350,7 @@ async def punch_in(body: PunchIn, user: dict = Depends(employee_user)):
     today = today_str()
     if await db.attendance.find_one({"user_id": user["id"], "date": today}):
         raise HTTPException(status_code=400, detail="Already punched in today")
+    check_window("in")
     res = await db.attendance.insert_one({"user_id": user["id"], "date": today, "punch_in": punch_payload(body), "punch_out": None, "work_minutes": 0, "created_at": now_utc()})
     return ser(await db.attendance.find_one({"_id": res.inserted_id}))
 
@@ -344,6 +362,7 @@ async def punch_out(body: PunchIn, user: dict = Depends(employee_user)):
         raise HTTPException(status_code=400, detail="Please punch in first")
     if rec.get("punch_out"):
         raise HTTPException(status_code=400, detail="Already punched out today")
+    check_window("out")
     out = punch_payload(body)
     minutes = int((datetime.fromisoformat(out["time"]) - datetime.fromisoformat(rec["punch_in"]["time"])).total_seconds() // 60)
     await db.attendance.update_one({"_id": rec["_id"]}, {"$set": {"punch_out": out, "work_minutes": minutes}})

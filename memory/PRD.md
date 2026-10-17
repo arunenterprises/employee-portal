@@ -26,6 +26,10 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Synced employees: initial password = DOB DDMMYYYY (else mobile); change-password banner
 - Tested: iteration_2 backend 37/37, frontend 100%
 
+## Implemented (2026-10-17, iteration 3)
+- Punch screen: Front Camera + Location permission mandatory (Permission Required + Retry), non-editable live punch time + GPS, 30s countdown then auto capture & submit (manual "Submit now" also)
+- Punch windows enforced on server (IST): In 09:10-09:30, Out 18:10-18:30 (backend/.env PUNCH_IN_WINDOW / PUNCH_OUT_WINDOW); dashboard shows windows and disables button outside window
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

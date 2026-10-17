@@ -21,9 +21,28 @@ const LiveClock = () => {
   );
 };
 
-const PunchCard = ({ today, onPunch }) => {
+const fmtWin = ([a, b]) => {
+  const t = (s) => new Date(`2000-01-01T${s}:00`).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  return `${t(a)} – ${t(b)}`;
+};
+
+const inWindow = (cfg, kind, now) => {
+  if (!cfg) return false;
+  const hm = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: cfg.timezone });
+  const [a, b] = cfg.windows[kind];
+  return hm >= a && hm <= b;
+};
+
+const PunchCard = ({ today, cfg, onPunch }) => {
   const inT = today?.punch_in?.time;
   const outT = today?.punch_out?.time;
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(t);
+  }, []);
+  const canIn = inWindow(cfg, "in", now);
+  const canOut = inWindow(cfg, "out", now);
   return (
     <div className="rounded-2xl bg-[hsl(var(--sidebar))] text-white p-6 sm:p-8 grid-bg relative overflow-hidden rise" data-testid="punch-card">
       <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold mb-6">
@@ -36,10 +55,17 @@ const PunchCard = ({ today, onPunch }) => {
         <div><div className="text-slate-400 text-xs">Punch out</div><div className="font-mono font-semibold mt-1" data-testid="today-out-time">{fmtTime(outT)}</div></div>
         <div><div className="text-slate-400 text-xs">Worked</div><div className="font-mono font-semibold mt-1">{fmtHours(today?.work_minutes)}</div></div>
       </div>
-      <div className="mt-8">
-        {!inT && <Button onClick={() => onPunch("in")} className="h-12 px-8 bg-emerald-500 hover:bg-emerald-600 text-white text-base" data-testid="punch-in-btn"><LogIn size={18} className="mr-2" />Punch In</Button>}
-        {inT && !outT && <Button onClick={() => onPunch("out")} className="h-12 px-8 bg-rose-500 hover:bg-rose-600 text-white text-base" data-testid="punch-out-btn"><LogOut size={18} className="mr-2" />Punch Out</Button>}
+      <div className="mt-8 space-y-3">
+        {!inT && <Button onClick={() => onPunch("in")} disabled={!canIn} className="h-12 px-8 bg-emerald-500 hover:bg-emerald-600 text-white text-base disabled:opacity-40" data-testid="punch-in-btn"><LogIn size={18} className="mr-2" />Punch In</Button>}
+        {inT && !outT && <Button onClick={() => onPunch("out")} disabled={!canOut} className="h-12 px-8 bg-rose-500 hover:bg-rose-600 text-white text-base disabled:opacity-40" data-testid="punch-out-btn"><LogOut size={18} className="mr-2" />Punch Out</Button>}
         {outT && <div className="inline-flex items-center gap-2 text-emerald-400 font-semibold" data-testid="punch-done"><CheckCircle2 size={18} />Attendance marked for today</div>}
+        {cfg && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-slate-400" data-testid="punch-windows">
+            <span>In time: <span className="text-slate-200 font-mono">{fmtWin(cfg.windows.in)}</span></span>
+            <span>Out time: <span className="text-slate-200 font-mono">{fmtWin(cfg.windows.out)}</span></span>
+          </div>
+        )}
+        {!outT && cfg && !(inT ? canOut : canIn) && <div className="text-xs text-amber-300" data-testid="punch-window-closed">{inT ? "Punch Out" : "Punch In"} opens only during the time shown above.</div>}
       </div>
     </div>
   );
@@ -51,6 +77,9 @@ export default function EmpDashboard() {
   const [sum, setSum] = useState(null);
   const [reqs, setReqs] = useState([]);
   const [mode, setMode] = useState(null);
+  const [cfg, setCfg] = useState(null);
+
+  useEffect(() => { api.get("/attendance/config").then((r) => setCfg(r.data)); }, []);
 
   const load = useCallback(() => {
     api.get("/attendance/today").then((r) => setToday(r.data));
@@ -59,6 +88,7 @@ export default function EmpDashboard() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  const closePunch = useCallback(() => setMode(null), []);
 
   return (
     <div className="space-y-8">
@@ -75,7 +105,7 @@ export default function EmpDashboard() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2"><PunchCard today={today} onPunch={setMode} /></div>
+        <div className="lg:col-span-2"><PunchCard today={today} cfg={cfg} onPunch={setMode} /></div>
         <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
           <StatCard icon={CalendarCheck2} label="Present this month" value={sum?.present_this_month ?? "–"} testId="stat-present" tone="bg-emerald-50 text-emerald-600" />
           <StatCard icon={Hourglass} label="Pending requests" value={sum?.pending_requests ?? "–"} testId="stat-pending" tone="bg-amber-50 text-amber-600" delay={80} />
@@ -115,7 +145,7 @@ export default function EmpDashboard() {
         ) : <Empty text="No requests yet." />}
       </Panel>
 
-      <PunchDialog open={!!mode} mode={mode} onClose={() => setMode(null)} onDone={load} />
+      <PunchDialog open={!!mode} mode={mode} onClose={closePunch} onDone={load} />
     </div>
   );
 }
