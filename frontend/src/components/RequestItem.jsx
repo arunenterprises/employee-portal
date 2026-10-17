@@ -1,13 +1,16 @@
-import { Plane, Banknote, FileText, MessageSquare } from "lucide-react";
+import { Plane, Banknote, FileText, MessageSquare, Fingerprint } from "lucide-react";
 import { StatusBadge } from "@/components/common";
 import { fmtDate, fmtINR, monthLabel } from "@/lib/api";
 
-const ICONS = { leave: Plane, advance: Banknote, payslip: FileText, other: MessageSquare };
+const ICONS = { leave: Plane, advance: Banknote, payslip: FileText, missed_punch: Fingerprint, other: MessageSquare };
+const MISSED = { in: "Punch In", out: "Punch Out", both: "In & Out" };
+const t12 = (hm) => (hm ? new Date(`2000-01-01T${hm}:00`).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "");
 
 const summary = (r) => {
   if (r.type === "leave") return [`${r.leave_type}`, `${fmtDate(r.start_date)} → ${fmtDate(r.end_date)} · ${r.days} day${r.days > 1 ? "s" : ""}`];
   if (r.type === "advance") return ["Salary Advance", `${fmtINR(r.amount)}${r.repayment ? ` · ${r.repayment}` : ""}`];
   if (r.type === "payslip") return ["Payslip Request", monthLabel(r.month)];
+  if (r.type === "missed_punch") return [`Missed Punch · ${MISSED[r.missed] || ""}`, `${fmtDate(r.punch_date)} · ${[r.in_time && `In ${t12(r.in_time)}`, r.out_time && `Out ${t12(r.out_time)}`].filter(Boolean).join(" · ")}`];
   return [r.subject, "Other request"];
 };
 

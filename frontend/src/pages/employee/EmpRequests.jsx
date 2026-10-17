@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plane, Banknote, FileText, MessageSquare, Inbox } from "lucide-react";
+import { Plane, Banknote, FileText, MessageSquare, Inbox, Fingerprint } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Empty } from "@/components/common";
@@ -7,7 +7,7 @@ import RequestFormDialog from "@/components/RequestFormDialog";
 import RequestItem from "@/components/RequestItem";
 import { api, errMsg } from "@/lib/api";
 
-const QUICK = [["leave", "Leave", Plane], ["advance", "Advance", Banknote], ["payslip", "Payslip", FileText], ["other", "Other", MessageSquare]];
+const QUICK = [["leave", "Leave", Plane], ["advance", "Advance", Banknote], ["payslip", "Payslip", FileText], ["missed_punch", "Missed Punch", Fingerprint], ["other", "Other", MessageSquare]];
 const FILTERS = ["all", "pending", "approved", "rejected"];
 
 export default function EmpRequests() {
@@ -27,7 +27,7 @@ export default function EmpRequests() {
   return (
     <div>
       <PageHeader eyebrow="Requests" title="My requests" desc="Apply for leave, salary advance, payslip or anything else." />
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
         {QUICK.map(([t, label, Icon], i) => (
           <button key={t} onClick={() => setOpenType(t)} data-testid={`request-${t}-btn`} style={{ animationDelay: `${i * 60}ms` }}
             className="rise rounded-xl border bg-card p-5 text-left shadow-sm hover:border-primary hover:shadow-md transition-[border-color,box-shadow] group">

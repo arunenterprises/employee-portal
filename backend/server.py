@@ -5,6 +5,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 import os
+import re
 import base64
 import logging
 from datetime import datetime, timezone, timedelta, date as date_cls
@@ -326,7 +327,22 @@ def check_window(kind: str):
     now = datetime.now(TZ).strftime("%H:%M")
     if not (start <= now <= end):
         label = "Punch In" if kind == "in" else "Punch Out"
-        raise HTTPException(status_code=400, detail=f"{label} is allowed only between {start} and {end}")
+        tip = " Please raise a Missed Punch request." if now > end else ""
+        raise HTTPException(status_code=400, detail=f"{label} is allowed only between {start} and {end}.{tip}")
+
+
+def mins(hm: str) -> int:
+    h, m = hm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def late_info(hm: str) -> dict:
+    late = max(0, mins(hm) - mins(punch_windows()["in"][1]))
+    return {"late": late > 0, "late_minutes": late}
+
+
+def ist_iso(d: str, hm: str) -> str:
+    return datetime.fromisoformat(f"{d}T{hm}:00").replace(tzinfo=TZ).astimezone(timezone.utc).isoformat()
 
 
 def punch_payload(body: PunchIn) -> dict:
@@ -350,8 +366,13 @@ async def punch_in(body: PunchIn, user: dict = Depends(employee_user)):
     today = today_str()
     if await db.attendance.find_one({"user_id": user["id"], "date": today}):
         raise HTTPException(status_code=400, detail="Already punched in today")
-    check_window("in")
-    res = await db.attendance.insert_one({"user_id": user["id"], "date": today, "punch_in": punch_payload(body), "punch_out": None, "work_minutes": 0, "created_at": now_utc()})
+    now_hm = datetime.now(TZ).strftime("%H:%M")
+    w = punch_windows()
+    if now_hm < w["in"][0]:
+        raise HTTPException(status_code=400, detail=f"Punch In opens at {w['in'][0]}")
+    if now_hm > w["out"][1]:
+        raise HTTPException(status_code=400, detail="Punch In is closed for today. Please raise a Missed Punch request.")
+    res = await db.attendance.insert_one({"user_id": user["id"], "date": today, "punch_in": punch_payload(body), "punch_out": None, "work_minutes": 0, **late_info(now_hm), "created_at": now_utc()})
     return ser(await db.attendance.find_one({"_id": res.inserted_id}))
 
 
@@ -393,15 +414,66 @@ async def admin_attendance(date: Optional[str] = None, month: Optional[str] = No
 
 # ---------- requests ----------
 class RequestIn(BaseModel):
-    type: Literal["leave", "advance", "payslip", "other"]
+    type: Literal["leave", "advance", "payslip", "missed_punch", "other"]
     leave_type: str = ""
     start_date: str = ""
     end_date: str = ""
     amount: float = 0
     repayment: str = ""
     month: str = ""
+    punch_date: str = ""
+    missed: Literal["in", "out", "both", ""] = ""
+    in_time: str = ""
+    out_time: str = ""
     subject: str = ""
     reason: str = ""
+
+
+HM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+async def validate_missed_punch(body: RequestIn, user_id: str):
+    try:
+        d = date_cls.fromisoformat(body.punch_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Select a valid date")
+    if d.isoformat() > today_str():
+        raise HTTPException(status_code=400, detail="Date cannot be in the future")
+    if not body.missed:
+        raise HTTPException(status_code=400, detail="Select which punch was missed")
+    need_in, need_out = body.missed in ("in", "both"), body.missed in ("out", "both")
+    if (need_in and not HM_RE.match(body.in_time)) or (need_out and not HM_RE.match(body.out_time)):
+        raise HTTPException(status_code=400, detail="Enter valid time (HH:MM)")
+    rec = await db.attendance.find_one({"user_id": user_id, "date": body.punch_date})
+    if need_in and rec and rec.get("punch_in"):
+        raise HTTPException(status_code=400, detail="Punch In already exists for this date")
+    if need_out and rec and rec.get("punch_out"):
+        raise HTTPException(status_code=400, detail="Punch Out already exists for this date")
+    if body.missed == "out" and not (rec and rec.get("punch_in")):
+        raise HTTPException(status_code=400, detail="No Punch In on this date. Select 'Both In & Out'.")
+    in_hm = body.in_time if need_in else datetime.fromisoformat(rec["punch_in"]["time"]).astimezone(TZ).strftime("%H:%M")
+    if need_out and body.out_time <= in_hm:
+        raise HTTPException(status_code=400, detail="Out time must be after In time")
+    if await db.requests.find_one({"user_id": user_id, "type": "missed_punch", "punch_date": body.punch_date, "status": "pending"}):
+        raise HTTPException(status_code=400, detail="A Missed Punch request for this date is already pending")
+
+
+async def apply_missed_punch(r: dict):
+    rec = await db.attendance.find_one({"user_id": r["user_id"], "date": r["punch_date"]}) or {}
+    manual = lambda hm: {"time": ist_iso(r["punch_date"], hm), "selfie": None, "lat": None, "lng": None, "accuracy": None, "manual": True}
+    upd = {"manual": True}
+    if r["missed"] in ("in", "both") and not rec.get("punch_in"):
+        upd["punch_in"] = manual(r["in_time"])
+        upd.update(late_info(r["in_time"]))
+    if r["missed"] in ("out", "both") and not rec.get("punch_out"):
+        upd["punch_out"] = manual(r["out_time"])
+    pin, pout = upd.get("punch_in") or rec.get("punch_in"), upd.get("punch_out") or rec.get("punch_out")
+    if pin and pout:
+        upd["work_minutes"] = max(0, int((datetime.fromisoformat(pout["time"]) - datetime.fromisoformat(pin["time"])).total_seconds() // 60))
+    if rec:
+        await db.attendance.update_one({"_id": rec["_id"]}, {"$set": upd})
+    else:
+        await db.attendance.insert_one({"user_id": r["user_id"], "date": r["punch_date"], "punch_out": None, "work_minutes": 0, "created_at": now_utc(), **upd})
 
 
 class DecisionIn(BaseModel):
@@ -424,6 +496,8 @@ async def create_request(body: RequestIn, user: dict = Depends(employee_user)):
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
     elif body.type == "payslip":
         valid_month(body.month)
+    elif body.type == "missed_punch":
+        await validate_missed_punch(body, user["id"])
     elif body.type == "other" and not body.subject.strip():
         raise HTTPException(status_code=400, detail="Subject is required")
     data.update({"user_id": user["id"], "status": "pending", "admin_comment": "", "created_at": now_utc(), "decided_at": None})
@@ -458,13 +532,16 @@ async def admin_requests(status: Optional[str] = None, type: Optional[str] = Non
 
 @api.patch("/admin/requests/{req_id}")
 async def decide_request(req_id: str, body: DecisionIn, admin: dict = Depends(admin_user)):
-    res = await db.requests.update_one(
-        {"_id": oid(req_id), "status": "pending"},
+    req = await db.requests.find_one({"_id": oid(req_id), "status": "pending"})
+    if not req:
+        raise HTTPException(status_code=400, detail="Request not found or already decided")
+    if body.status == "approved" and req["type"] == "missed_punch":
+        await apply_missed_punch(req)
+    await db.requests.update_one(
+        {"_id": req["_id"]},
         {"$set": {"status": body.status, "admin_comment": body.admin_comment, "decided_at": now_utc()}},
     )
-    if not res.matched_count:
-        raise HTTPException(status_code=400, detail="Request not found or already decided")
-    return ser(await db.requests.find_one({"_id": oid(req_id)}))
+    return ser(await db.requests.find_one({"_id": req["_id"]}))
 
 
 # ---------- payslips ----------
@@ -576,6 +653,7 @@ async def admin_stats(admin: dict = Depends(admin_user)):
     return {
         "employees": await db.users.count_documents({"role": "employee", "active": True}),
         "present_today": await db.attendance.count_documents({"date": today}),
+        "late_today": await db.attendance.count_documents({"date": today, "late": True}),
         "pending_requests": await db.requests.count_documents({"status": "pending"}),
         "on_leave_today": await db.requests.count_documents({"type": "leave", "status": "approved", "start_date": {"$lte": today}, "end_date": {"$gte": today}}),
         "today": today,

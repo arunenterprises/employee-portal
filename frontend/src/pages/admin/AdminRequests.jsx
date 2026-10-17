@@ -43,7 +43,7 @@ export default function AdminRequests() {
           ))}
         </div>
         <NativeSelect value={type} onChange={(e) => setType(e.target.value)} className="sm:w-48" data-testid="admin-req-type-filter">
-          <option value="">All types</option><option value="leave">Leave</option><option value="advance">Advance</option><option value="payslip">Payslip</option><option value="other">Other</option>
+          <option value="">All types</option><option value="leave">Leave</option><option value="advance">Advance</option><option value="payslip">Payslip</option><option value="missed_punch">Missed Punch</option><option value="other">Other</option>
         </NativeSelect>
       </div>
       <div className="space-y-3">

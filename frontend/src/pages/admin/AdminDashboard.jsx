@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Users, UserCheck, Hourglass, Plane, ArrowRight } from "lucide-react";
+import { Users, UserCheck, Hourglass, Plane, ArrowRight, AlarmClock } from "lucide-react";
 import { PageHeader, Panel, StatCard, Empty } from "@/components/common";
 import RequestItem from "@/components/RequestItem";
 import AttendanceTable from "@/components/AttendanceTable";
@@ -22,9 +22,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <PageHeader eyebrow="HR Overview" title="Dashboard" desc={s ? `Today · ${fmtDate(s.today)}` : ""} />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={Users} label="Active employees" value={s?.employees ?? "–"} testId="stat-employees" />
         <StatCard icon={UserCheck} label="Present today" value={s?.present_today ?? "–"} testId="stat-present-today" tone="bg-emerald-50 text-emerald-600" delay={60} />
+        <StatCard icon={AlarmClock} label="Late today" value={s?.late_today ?? "–"} testId="stat-late-today" tone="bg-orange-50 text-orange-600" delay={90} />
         <StatCard icon={Hourglass} label="Pending requests" value={s?.pending_requests ?? "–"} testId="stat-pending-requests" tone="bg-amber-50 text-amber-600" delay={120} />
         <StatCard icon={Plane} label="On leave today" value={s?.on_leave_today ?? "–"} testId="stat-on-leave" tone="bg-rose-50 text-rose-600" delay={180} />
       </div>

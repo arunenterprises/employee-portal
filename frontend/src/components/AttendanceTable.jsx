@@ -4,15 +4,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Empty } from "@/components/common";
 import { fmtDate, fmtTime, fmtHours, mapLink } from "@/lib/api";
 
-const PunchCell = ({ p, onView }) => {
+const PunchCell = ({ p, onView, late }) => {
   if (!p) return <span className="text-muted-foreground">—</span>;
   const link = mapLink(p);
   return (
     <div className="flex items-center gap-3">
       {p.selfie && <button onClick={() => onView(p.selfie)} className="shrink-0"><img src={p.selfie} alt="selfie" className="h-10 w-10 rounded-md object-cover ring-1 ring-slate-200 hover:ring-primary transition" /></button>}
       <div>
-        <div className="font-mono text-sm font-semibold">{fmtTime(p.time)}</div>
-        {link ? <a href={link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1"><MapPin size={11} />Map</a>
+        <div className="font-mono text-sm font-semibold">{fmtTime(p.time)}{late && <span className="ml-1.5 rounded bg-amber-100 text-amber-800 text-[10px] font-sans font-semibold px-1.5 py-0.5" data-testid="late-badge">Late {late}m</span>}</div>
+        {p.manual ? <span className="text-xs text-blue-700" data-testid="manual-punch-tag">Missed punch · HR approved</span>
+          : link ? <a href={link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1"><MapPin size={11} />Map</a>
           : <span className="text-xs text-amber-600">No GPS</span>}
       </div>
     </div>
@@ -40,7 +41,7 @@ export default function AttendanceTable({ rows, showEmployee }) {
               <tr key={r.id} className="hover:bg-slate-50 transition-colors" data-testid={`attendance-row-${r.id}`}>
                 {showEmployee && <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{r.employee?.name || "—"}</div><div className="text-xs text-muted-foreground">{r.employee?.employee_id}</div></td>}
                 <td className="px-5 sm:px-6 py-3 font-medium whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-3 py-3"><PunchCell p={r.punch_in} onView={setView} /></td>
+                <td className="px-3 py-3"><PunchCell p={r.punch_in} onView={setView} late={r.late ? r.late_minutes : 0} /></td>
                 <td className="px-3 py-3"><PunchCell p={r.punch_out} onView={setView} /></td>
                 <td className="px-5 sm:px-6 py-3 text-right font-mono">{fmtHours(r.work_minutes)}</td>
               </tr>

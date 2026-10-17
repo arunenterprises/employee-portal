@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field, NativeSelect } from "@/components/common";
-import { api, errMsg } from "@/lib/api";
+import { api, errMsg, localDate } from "@/lib/api";
 
-const EMPTY = { leave_type: "Casual Leave", start_date: "", end_date: "", amount: "", repayment: "", month: "", subject: "", reason: "" };
+const EMPTY = { leave_type: "Casual Leave", start_date: "", end_date: "", amount: "", repayment: "", month: "", punch_date: "", missed: "in", in_time: "", out_time: "", subject: "", reason: "" };
 const LEAVE_TYPES = ["Casual Leave", "Sick Leave", "Earned Leave", "Half Day", "Unpaid Leave"];
 
 export default function RequestFormDialog({ open, initialType, onOpenChange, onSaved }) {
@@ -46,6 +46,7 @@ export default function RequestFormDialog({ open, initialType, onOpenChange, onS
               <option value="leave">Leave</option>
               <option value="advance">Salary Advance</option>
               <option value="payslip">Payslip</option>
+              <option value="missed_punch">Missed Punch</option>
               <option value="other">Other</option>
             </NativeSelect>
           </Field>
@@ -73,6 +74,25 @@ export default function RequestFormDialog({ open, initialType, onOpenChange, onS
 
           {type === "payslip" && (
             <Field label="Payslip month"><Input type="month" required value={f.month} onChange={set("month")} data-testid="payslip-month-input" /></Field>
+          )}
+
+          {type === "missed_punch" && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Date"><Input type="date" required max={localDate()} value={f.punch_date} onChange={set("punch_date")} data-testid="mp-date-input" /></Field>
+                <Field label="Missed punch">
+                  <NativeSelect value={f.missed} onChange={set("missed")} data-testid="mp-missed-select">
+                    <option value="in">Punch In</option>
+                    <option value="out">Punch Out</option>
+                    <option value="both">Both In & Out</option>
+                  </NativeSelect>
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {f.missed !== "out" && <Field label="Actual In time"><Input type="time" required value={f.in_time} onChange={set("in_time")} data-testid="mp-in-time" /></Field>}
+                {f.missed !== "in" && <Field label="Actual Out time"><Input type="time" required value={f.out_time} onChange={set("out_time")} data-testid="mp-out-time" /></Field>}
+              </div>
+            </>
           )}
 
           {type === "other" && (

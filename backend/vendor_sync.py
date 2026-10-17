@@ -7,7 +7,8 @@ import httpx
 
 logger = logging.getLogger("vendor_sync")
 
-LEAVE_CODES = {"Casual Leave": "CL", "Sick Leave": "SL", "Earned Leave": "EL", "Unpaid Leave": "LWP", "Half Day": "HL"}
+# Vendor attendance grid codes: P present, A absent, L leave, H half-day, W week-off, HL holiday
+LEAVE_CODES = {"Half Day": "H"}
 
 
 def _url():
@@ -129,7 +130,7 @@ async def push_attendance(db, client, headers, today: date_cls) -> dict:
         month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
         for e in emps:
             uid = str(e["_id"])
-            att = await db.attendance.find({"user_id": uid, "date": {"$regex": f"^{prefix}"}}, {"date": 1}).to_list(40)
+            att = await db.attendance.find({"user_id": uid, "date": {"$regex": f"^{prefix}"}}, {"date": 1, "late": 1, "late_minutes": 1}).to_list(40)
             leaves = await db.requests.find({"user_id": uid, "type": "leave", "status": "approved",
                                              "start_date": {"$lte": month_end.isoformat()}, "end_date": {"$gte": month_start.isoformat()}}).to_list(50)
             if not att and not leaves:
@@ -137,14 +138,18 @@ async def push_attendance(db, client, headers, today: date_cls) -> dict:
             doc_id = f"att_{e['vendor_id']}_{y}{m:02d}"
             doc = remote.get(doc_id) or {"id": doc_id, "empId": e["vendor_id"], "year": y, "month": m, "days": {}}
             days = dict(doc.get("days") or {})
+            late = dict(doc.get("late") or {})
             changed = False
             for a in att:
                 dd = a["date"][8:10]
                 if days.get(dd) in (None, "", "A"):
                     days[dd] = "P"
                     changed = True
+                if a.get("late") and late.get(dd) != a.get("late_minutes"):
+                    late[dd] = a.get("late_minutes")
+                    changed = True
             for lv in leaves:
-                code = LEAVE_CODES.get(lv.get("leave_type"), "CL")
+                code = LEAVE_CODES.get(lv.get("leave_type"), "L")
                 d = max(date_cls.fromisoformat(lv["start_date"]), month_start)
                 while d <= min(date_cls.fromisoformat(lv["end_date"]), month_end):
                     dd = f"{d.day:02d}"
@@ -153,7 +158,7 @@ async def push_attendance(db, client, headers, today: date_cls) -> dict:
                         changed = True
                     d += timedelta(days=1)
             if changed:
-                body = {"id": doc_id, "empId": e["vendor_id"], "year": y, "month": m, "days": days,
+                body = {"id": doc_id, "empId": e["vendor_id"], "year": y, "month": m, "days": days, "late": late,
                         "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
                 pr = await client.post(f"{_url()}/attendance", headers=headers, json=body)
                 pr.raise_for_status()

@@ -26,12 +26,17 @@ const fmtWin = ([a, b]) => {
   return `${t(a)} – ${t(b)}`;
 };
 
+const hmNow = (cfg, now) => now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: cfg.timezone });
+
 const inWindow = (cfg, kind, now) => {
   if (!cfg) return false;
-  const hm = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: cfg.timezone });
+  const hm = hmNow(cfg, now);
   const [a, b] = cfg.windows[kind];
   return hm >= a && hm <= b;
 };
+
+const canPunchIn = (cfg, now) => cfg && hmNow(cfg, now) >= cfg.windows.in[0] && hmNow(cfg, now) <= cfg.windows.out[1];
+const isLateNow = (cfg, now) => cfg && hmNow(cfg, now) > cfg.windows.in[1];
 
 const PunchCard = ({ today, cfg, onPunch }) => {
   const inT = today?.punch_in?.time;
@@ -41,7 +46,7 @@ const PunchCard = ({ today, cfg, onPunch }) => {
     const t = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(t);
   }, []);
-  const canIn = inWindow(cfg, "in", now);
+  const canIn = canPunchIn(cfg, now);
   const canOut = inWindow(cfg, "out", now);
   return (
     <div className="rounded-2xl bg-[hsl(var(--sidebar))] text-white p-6 sm:p-8 grid-bg relative overflow-hidden rise" data-testid="punch-card">
@@ -51,7 +56,7 @@ const PunchCard = ({ today, cfg, onPunch }) => {
       </div>
       <LiveClock />
       <div className="grid grid-cols-3 gap-4 mt-8 text-sm">
-        <div><div className="text-slate-400 text-xs">Punch in</div><div className="font-mono font-semibold mt-1" data-testid="today-in-time">{fmtTime(inT)}</div></div>
+        <div><div className="text-slate-400 text-xs">Punch in</div><div className="font-mono font-semibold mt-1" data-testid="today-in-time">{fmtTime(inT)}</div>{today?.late && <span className="inline-block mt-1 rounded bg-amber-400/20 text-amber-300 text-[11px] font-semibold px-1.5 py-0.5" data-testid="today-late-badge">Late {today.late_minutes}m</span>}</div>
         <div><div className="text-slate-400 text-xs">Punch out</div><div className="font-mono font-semibold mt-1" data-testid="today-out-time">{fmtTime(outT)}</div></div>
         <div><div className="text-slate-400 text-xs">Worked</div><div className="font-mono font-semibold mt-1">{fmtHours(today?.work_minutes)}</div></div>
       </div>
@@ -65,7 +70,12 @@ const PunchCard = ({ today, cfg, onPunch }) => {
             <span>Out time: <span className="text-slate-200 font-mono">{fmtWin(cfg.windows.out)}</span></span>
           </div>
         )}
-        {!outT && cfg && !(inT ? canOut : canIn) && <div className="text-xs text-amber-300" data-testid="punch-window-closed">{inT ? "Punch Out" : "Punch In"} opens only during the time shown above.</div>}
+        {!inT && canIn && isLateNow(cfg, now) && <div className="text-xs text-amber-300" data-testid="punch-late-warning">In time is over — your punch will be marked Late.</div>}
+        {!outT && cfg && !(inT ? canOut : canIn) && (
+          <div className="text-xs text-amber-300" data-testid="punch-window-closed">
+            {inT ? "Punch Out" : "Punch In"} is not open right now. Missed it? <Link to="/employee/requests" className="underline font-semibold hover:text-amber-200" data-testid="missed-punch-link">Raise a Missed Punch request</Link>
+          </div>
+        )}
       </div>
     </div>
   );
