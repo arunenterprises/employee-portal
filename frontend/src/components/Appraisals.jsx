@@ -72,7 +72,7 @@ export function AppraisalList({ items, onDelete }) {
             <span className="text-xs text-muted-foreground ml-auto">{fmtDate(a.review_date)}{a.reviewer ? ` · ${a.reviewer}` : ""}</span>
             {onDelete && <button onClick={() => onDelete(a.id)} className="text-slate-400 hover:text-rose-600" aria-label="Delete" data-testid={`delete-appraisal-${a.id}`}><Trash2 size={15} /></button>}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 mt-4">
             {CRITERIA.map((c) => <div key={c} className="flex items-center justify-between gap-2 text-sm"><span className="text-slate-600">{c}</span><Stars value={a.ratings?.[c] || 0} /></div>)}
           </div>
           {(a.strengths || a.improvements || a.remarks) && (

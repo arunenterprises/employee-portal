@@ -16,9 +16,9 @@ export const BalanceCards = ({ data }) => {
     <div className="grid grid-cols-3 gap-3" data-testid="leave-balance-cards">
       {data.balances.map((b) => (
         <div key={b.leave_type} className="rounded-xl border bg-white p-4" data-testid={`balance-${SHORT[b.leave_type]}`}>
-          <div className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">{b.leave_type}</div>
+          <div className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground"><span className="sm:hidden">{SHORT[b.leave_type]}</span><span className="hidden sm:inline">{b.leave_type}</span></div>
           <div className="font-display text-3xl font-bold mt-1" data-testid={`balance-available-${SHORT[b.leave_type]}`}>{b.available}</div>
-          <div className="text-xs text-muted-foreground mt-1">of {b.allotted} · used {b.used}{b.pending ? ` · pending ${b.pending}` : ""}</div>
+          <div className="text-xs text-muted-foreground mt-1">of {b.allotted}<span className="hidden sm:inline"> · used {b.used}{b.pending ? ` · pending ${b.pending}` : ""}</span></div>
           <div className="h-1.5 rounded-full bg-slate-100 mt-3 overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${b.allotted ? Math.min(100, (b.used / b.allotted) * 100) : 0}%` }} /></div>
         </div>
       ))}
@@ -32,6 +32,7 @@ const QuotaForm = ({ userId, year, data, onSaved }) => {
   useEffect(() => { setQ(Object.fromEntries((data?.balances || []).map((b) => [b.leave_type, b.quota]))); }, [data]);
   const save = async (e) => {
     e.preventDefault();
+    if (all && !window.confirm("Apply this quota to ALL employees for " + year + "? Their existing quotas will be replaced.")) return;
     try {
       const { data: d } = await api.put(`/admin/leave-balance/${userId}`, { year, quotas: q, apply_to_all: all });
       toast.success(all ? `Quota applied to ${d.applied_to} employees` : "Leave quota saved");

@@ -772,11 +772,12 @@ async def add_appraisal(body: AppraisalIn, admin: dict = Depends(admin_user)):
     await get_emp_or_404(body.user_id)
     try:
         date_cls.fromisoformat(body.review_date)
-        ratings = {c: int(body.ratings[c]) for c in CRITERIA}
+        raw = {c: body.ratings[c] for c in CRITERIA}
     except (ValueError, KeyError, TypeError):
         raise HTTPException(status_code=400, detail="Valid review date and a rating for every criterion are required")
-    if any(not 1 <= v <= 5 for v in ratings.values()):
-        raise HTTPException(status_code=400, detail="Ratings must be between 1 and 5")
+    if not body.period.strip() or any(type(v) is not int or not 1 <= v <= 5 for v in raw.values()):
+        raise HTTPException(status_code=400, detail="Period is required and ratings must be whole numbers 1-5")
+    ratings = raw
     score = round(sum(ratings.values()) / len(ratings), 1)
     data = body.model_dump() | {"ratings": ratings, "score": score, "grade": grade_for(score), "created_at": now_utc()}
     res = await db.appraisals.insert_one(data)

@@ -49,6 +49,11 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Employee detail redesign: dark hero card (photo, name, code, badges, actions, quick facts), profile + salary breakup in left column, sticky service record on right
 - Credential slips: POST /api/admin/credential-slips sets a new random 8-char password per selected employee (must_change_password) and returns slips once; bulk dialog on Employees page (pre-selects employees who never changed password) + single "Print slip" on detail page; print CSS prints only slips (logo, company, portal URL, code, password, instructions)
 
+## Implemented (2026-10-17, iteration 8)
+- Leave balance: yearly quota per employee (CL/SL/EL) with optional apply-to-all (confirm), +/- adjustments with reason & history; available = quota + adjustments - approved; Half Day = 0.5 CL; enforced on request & approval only when configured; employee sees cards on dashboard + availability in leave form
+- Service Book admin tab (/admin/service-book): employee picker, header summary, service entries, performance appraisals (6 criteria 1-5 stars, score, grade, recommendation), leave balance; employee sees appraisals on Profile
+- Tested: iteration_5 backend 15/15, frontend 100%
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

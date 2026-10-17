@@ -1,0 +1,40 @@
+{
+  "summary": "Iteration 5: tested the Leave Balance system and the Service Book / Performance Appraisals features on the backend (15 pytest cases, all passing) and the frontend (admin employee detail, Service Book tab, employee dashboard, request form and profile, plus the 390px mobile nav). All core flows work end to end. Every write action used TEST_ employees only. apply_to_all was never checked or sent, nothing was synced, no real employee was touched, and all TEST data was cleaned up (leave_balances/adjustments/appraisals = 0, no orphan records).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/appraisals", "issue": "Ratings are passed through int(), so 4.7 is silently truncated to 4 and boolean true is accepted as 1. A period made only of spaces passes min_length=1."},
+      {"endpoint": "PUT /api/admin/leave-balance/{id} apply_to_all", "issue": "Overwrites the quotas of every employee, including vendor-linked ones, without any server-side guard or audit. Consider recording who applied it, or restricting it to active employees."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AppraisalList (Service Book + Employee Profile) on mobile 390px", "issue": "The criteria grid (grid-cols-2 with star icons) overflows the viewport by 4px (scrollWidth 394 > 390), which causes horizontal page scroll. Use grid-cols-1 on mobile or smaller stars.", "selector": "[data-testid^='appraisal-'] .flex.gap-0\\.5", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Leave balance cards on mobile (3 columns)", "issues": ["Labels like 'CASUAL LEAVE' wrap and the 'of 6 · used 0 · pending 2' text wraps onto 3 lines. Consider stacking the cards or using short labels (CL/SL/EL) under 640px."]},
+      {"screen": "LeaveBalanceAdmin quota form", "issues": ["The 'Apply same quota to all employees' checkbox saves immediately with no confirmation dialog. This is a destructive bulk action, so add a confirm step."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_leave_balance_appraisals.py", "/app/backend/tests/ui_setup_iter5.py", "/app/test_reports/pytest/pytest_iter5.xml"],
+  "action_items": [
+    "(Low) Fix the 4px horizontal overflow of the AppraisalList star grid at 390px",
+    "(Low) Add a confirm dialog before saving the quota with apply_to_all checked",
+    "(Low) LeaveBalanceAdmin.load and RequestFormDialog's balance fetch have no .catch. Typing a partial year (e.g. '20') triggers a 422, which becomes an unhandled promise rejection and leaves stale cards on screen. removeAdj and appraisal delete also have no error toast or confirm.",
+    "(Low) Validate that appraisal ratings are integers and reject a whitespace-only period"
+  ],
+  "critical_code_review_comments": [
+    "Balance math is correct: available = quota + adjustments - approved. Create checks against available - pending, approve checks against available. Half Day = 0.5/day deducted from CL. Unpaid Leave is not tracked. Employees without a configured quota are not blocked. Adding an adjustment auto-creates a balance doc, which marks the employee as 'configured' and starts enforcement with 0 quotas for the other leave types. This may surprise admins.",
+    "The leave year is start_date[:4], so a leave spanning Dec to Jan is charged entirely to the start year. This matches the spec.",
+    "Deleting an employee cascades correctly to leave_balances, leave_adjustments and appraisals (verified in mongo).",
+    "Employee gets 403 on all admin leave-balance and appraisal endpoints (verified)."
+  ],
+  "updated_files": ["/app/backend/tests/test_leave_balance_appraisals.py", "/app/backend/tests/ui_setup_iter5.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% of functional flows; 1 minor mobile overflow"},
+  "seed_data_creation": "TEST_LBA*/TEST_LBB* (pytest) and TEST_UI5 (UI) were created and then deleted. Nothing remains.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=... pytest backend/tests/test_leave_balance_appraisals.py (uses year 2027 for isolation, creates and deletes its own TEST_ employees). For UI tests, run ui_setup_iter5.py create, then delete at the end. Verified in UI: quota save + cards, adjust + delete history, year switch, open-service-book-btn -> ?id=, sb-add-record (sr-*), appraisal form star ratings with live overall (4.5 -> Outstanding), nav-service-book, employee dashboard cards, leave-available-info for CL/SL/Half Day (hidden for Unpaid), insufficient balance toast, pending reflected, read-only profile-appraisals (no delete buttons), mobile bottom nav with 6 items at 65px each (no overflow). The container clock reads Oct 2026.",
+  "test_credentials": "Admin arunenterprises2023@gmail.com / WorkPulse@2026 (from /app/memory/test_credentials.md)"
+}
