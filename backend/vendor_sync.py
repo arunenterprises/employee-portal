@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone, timedelta, date as date_cls
 
 import httpx
+from bson import ObjectId
 
 logger = logging.getLogger("vendor_sync")
 
@@ -130,11 +131,30 @@ def _months(today: date_cls):
     return [(prev.year, prev.month), (today.year, today.month)]
 
 
-async def push_attendance(db, client, headers, today: date_cls) -> dict:
+async def pull_attendance(db, client, headers) -> tuple:
     r = await client.get(f"{_url()}/attendance", headers=headers)
     r.raise_for_status()
-    remote = {d["id"]: d for d in r.json() if d.get("id")}
-    emps = await db.users.find({"role": "employee", "vendor_id": {"$exists": True}}, {"vendor_id": 1}).to_list(5000)
+    docs = [d for d in r.json() if d.get("id")]
+    emps = {e["vendor_id"]: str(e["_id"]) for e in await db.users.find({"vendor_id": {"$exists": True}}, {"vendor_id": 1}).to_list(5000)}
+    now = datetime.now(timezone.utc)
+    pulled = 0
+    for d in docs:
+        uid = emps.get(d.get("empId"))
+        if not uid or not d.get("year") or not d.get("month"):
+            continue
+        await db.vendor_attendance.update_one({"user_id": uid, "year": int(d["year"]), "month": int(d["month"])},
+                                              {"$set": {"days": d.get("days") or {}, "late": d.get("late") or {}, "pulled_at": now}}, upsert=True)
+        pulled += 1
+    return {"attendance_months_pulled": pulled}, {d["id"]: d for d in docs}
+
+
+async def push_attendance(db, client, headers, today: date_cls, remote: dict = None, user_ids: list = None) -> dict:
+    if remote is None:
+        _, remote = await pull_attendance(db, client, headers)
+    q = {"role": "employee", "vendor_id": {"$exists": True}}
+    if user_ids:
+        q["_id"] = {"$in": [ObjectId(u) for u in user_ids]}
+    emps = await db.users.find(q, {"vendor_id": 1}).to_list(5000)
     pushed = 0
     for y, m in _months(today):
         prefix = f"{y}-{m:02d}"
@@ -174,8 +194,19 @@ async def push_attendance(db, client, headers, today: date_cls) -> dict:
                         "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
                 pr = await client.post(f"{_url()}/attendance", headers=headers, json=body)
                 pr.raise_for_status()
+                await db.vendor_attendance.update_one({"user_id": uid, "year": y, "month": m}, {"$set": {"days": days, "late": late, "pulled_at": datetime.now(timezone.utc)}}, upsert=True)
                 pushed += 1
     return {"attendance_months_pushed": pushed}
+
+
+async def push_now(db, user_id: str, today: date_cls):
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            lr = await client.post(f"{_url()}/auth/login", json={"identifier": os.environ["VENDOR_EMAIL"], "password": os.environ["VENDOR_PASSWORD"]})
+            lr.raise_for_status()
+            await push_attendance(db, client, {"Authorization": f"Bearer {lr.json()['token']}"}, today, user_ids=[user_id])
+    except Exception:
+        logger.exception("Instant attendance push failed for %s (hourly sync will retry)", user_id)
 
 
 async def run_sync(db, hash_password, today: date_cls, trigger: str, run_id: str = None) -> dict:
@@ -190,7 +221,9 @@ async def run_sync(db, hash_password, today: date_cls, trigger: str, run_id: str
             lr.raise_for_status()
             headers = {"Authorization": f"Bearer {lr.json()['token']}"}
             result = await pull_employees(db, client, headers, hash_password)
-            result |= await push_attendance(db, client, headers, today)
+            pulled, remote = await pull_attendance(db, client, headers)
+            result |= pulled
+            result |= await push_attendance(db, client, headers, today, remote)
         update = {"status": "success", "result": result}
     except Exception as ex:
         logger.exception("Vendor sync failed")

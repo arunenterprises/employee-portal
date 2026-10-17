@@ -24,7 +24,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 
 from payslip_pdf import build_payslip_pdf
-from vendor_sync import run_sync
+from vendor_sync import run_sync, push_now
+import calendar
 import asyncio
 import hmac
 
@@ -467,6 +468,7 @@ async def punch_in(body: PunchIn, user: dict = Depends(employee_user)):
     if now_hm > w["out"][1]:
         raise HTTPException(status_code=400, detail="Punch In is closed for today. Please raise a Missed Punch request.")
     res = await db.attendance.insert_one({"user_id": user["id"], "date": today, "punch_in": punch_payload(body), "punch_out": None, "work_minutes": 0, **late_info(now_hm), "created_at": now_utc()})
+    spawn_push(user)
     return ser(await db.attendance.find_one({"_id": res.inserted_id}))
 
 
@@ -481,6 +483,7 @@ async def punch_out(body: PunchIn, user: dict = Depends(employee_user)):
     out = punch_payload(body)
     minutes = int((datetime.fromisoformat(out["time"]) - datetime.fromisoformat(rec["punch_in"]["time"])).total_seconds() // 60)
     await db.attendance.update_one({"_id": rec["_id"]}, {"$set": {"punch_out": out, "work_minutes": minutes}})
+    spawn_push(user)
     return ser(await db.attendance.find_one({"_id": rec["_id"]}))
 
 
@@ -638,7 +641,41 @@ async def decide_request(req_id: str, body: DecisionIn, admin: dict = Depends(ad
         {"_id": req["_id"]},
         {"$set": {"status": body.status, "admin_comment": body.admin_comment, "decided_at": now_utc()}},
     )
+    if body.status == "approved" and req["type"] in ("leave", "missed_punch"):
+        spawn_push(await db.users.find_one({"_id": oid(req["user_id"])}) or {})
     return ser(await db.requests.find_one({"_id": req["_id"]}))
+
+
+@api.get("/admin/attendance-sheet")
+async def attendance_sheet(month: str, admin: dict = Depends(admin_user)):
+    valid_month(month)
+    y, m = int(month[:4]), int(month[5:])
+    ndays = calendar.monthrange(y, m)[1]
+    first, last = f"{month}-01", f"{month}-{ndays:02d}"
+    emps = await db.users.find({"role": "employee"}, {"name": 1, "employee_id": 1, "department": 1}).sort("employee_id", 1).to_list(5000)
+    rows = []
+    for e in emps:
+        uid = str(e["_id"])
+        va = await db.vendor_attendance.find_one({"user_id": uid, "year": y, "month": m}) or {}
+        vlate = va.get("late") or {}
+        cells = {dd: {"code": c, "source": "hr", "late": vlate.get(dd) or 0} for dd, c in (va.get("days") or {}).items() if c}
+        for a in await db.attendance.find({"user_id": uid, "date": {"$regex": f"^{month}"}}, {"date": 1, "punch_in.time": 1, "punch_out.time": 1, "late": 1, "late_minutes": 1, "manual": 1}).to_list(40):
+            dd = a["date"][8:10]
+            prev = (cells.get(dd) or {}).get("code")
+            cells[dd] = {"code": prev if prev not in (None, "", "A") else "P", "source": "portal", "manual": bool(a.get("manual")),
+                         "in": (a.get("punch_in") or {}).get("time"), "out": (a.get("punch_out") or {}).get("time"), "late": a.get("late_minutes", 0) if a.get("late") else 0}
+        for lv in await db.requests.find({"user_id": uid, "type": "leave", "status": "approved", "start_date": {"$lte": last}, "end_date": {"$gte": first}}).to_list(50):
+            d = max(date_cls.fromisoformat(lv["start_date"]), date_cls.fromisoformat(first))
+            while d <= min(date_cls.fromisoformat(lv["end_date"]), date_cls.fromisoformat(last)):
+                cells.setdefault(f"{d.day:02d}", {"code": "H" if lv.get("leave_type") == "Half Day" else "L", "source": "leave", "note": lv.get("leave_type")})
+                d += timedelta(days=1)
+        totals = {}
+        for c in cells.values():
+            totals[c["code"]] = totals.get(c["code"], 0) + 1
+        totals["late"] = sum(1 for c in cells.values() if c.get("late"))
+        rows.append({"user_id": uid, "name": e.get("name"), "employee_id": e.get("employee_id"), "department": e.get("department"), "cells": cells, "totals": totals})
+    last_sync = await db.sync_logs.find_one({"status": "success"}, sort=[("started_at", -1)])
+    return {"month": month, "days": ndays, "rows": rows, "last_sync": last_sync["finished_at"].isoformat() if last_sync else None}
 
 
 # ---------- leave balance ----------
@@ -934,6 +971,13 @@ async def my_summary(user: dict = Depends(employee_user)):
 
 # ---------- vendor portal sync ----------
 _bg_tasks = set()
+
+
+def spawn_push(user: dict):
+    if user.get("vendor_id"):
+        task = asyncio.create_task(push_now(db, str(user.get("id") or user["_id"]), datetime.now(TZ).date()))
+        _bg_tasks.add(task)
+        task.add_done_callback(_bg_tasks.discard)
 
 @api.post("/admin/vendor-sync")
 async def vendor_sync_now(admin: dict = Depends(admin_user)):
