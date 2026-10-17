@@ -45,6 +45,10 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Admin employee detail layout: profile panel (photo/signature column + Job / Personal & contact / Bank & statutory groups), Salary breakup panel (Basic, HRA, DA, Special, Bonus, gross month/year, CTC if present), full-width Service record with collapsible add form
 - Vendor sync now stores da, special, bonus, ctc_annual separately
 
+## Implemented (2026-10-17, iteration 7)
+- Employee detail redesign: dark hero card (photo, name, code, badges, actions, quick facts), profile + salary breakup in left column, sticky service record on right
+- Credential slips: POST /api/admin/credential-slips sets a new random 8-char password per selected employee (must_change_password) and returns slips once; bulk dialog on Employees page (pre-selects employees who never changed password) + single "Print slip" on detail page; print CSS prints only slips (logo, company, portal URL, code, password, instructions)
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

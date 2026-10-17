@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Users, RefreshCw } from "lucide-react";
+import { Plus, Search, Users, RefreshCw, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, Panel, Empty, Badge2 } from "@/components/common";
 import EmployeeFormDialog from "@/components/EmployeeFormDialog";
 import { AccessSwitch } from "@/components/EmployeeAccess";
+import CredentialSlipsDialog, { SlipsPreview } from "@/components/CredentialSlips";
 import { api, errMsg, fmtDate } from "@/lib/api";
 
 const SyncBar = ({ onDone }) => {
@@ -41,6 +42,8 @@ export default function AdminEmployees() {
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [slipsOpen, setSlipsOpen] = useState(false);
+  const [slips, setSlips] = useState(null);
   const navigate = useNavigate();
 
   const load = useCallback(() => { api.get("/admin/employees").then((r) => setRows(r.data)); }, []);
@@ -52,7 +55,10 @@ export default function AdminEmployees() {
   return (
     <div>
       <PageHeader eyebrow="People" title="Employees" desc="Create employee accounts and manage their records."
-        action={<Button onClick={() => setOpen(true)} data-testid="add-employee-btn"><Plus size={16} className="mr-2" />Add employee</Button>} />
+        action={<div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setSlipsOpen(true)} data-testid="credential-slips-btn"><Printer size={16} className="mr-2" />Credential slips</Button>
+          <Button onClick={() => setOpen(true)} data-testid="add-employee-btn"><Plus size={16} className="mr-2" />Add employee</Button>
+        </div>} />
       <SyncBar onDone={load} />
       <Panel>
         <div className="relative mb-5 max-w-sm">
@@ -89,6 +95,8 @@ export default function AdminEmployees() {
         ) : <Empty icon={Users} text={rows.length ? "No matching employees." : "No employees yet. Click “Add employee” to create the first account."} testId="employees-empty" />}
       </Panel>
       <EmployeeFormDialog open={open} onOpenChange={setOpen} onSaved={load} />
+      <CredentialSlipsDialog open={slipsOpen} onOpenChange={setSlipsOpen} employees={rows} onIssued={(d) => { setSlips(d); load(); }} />
+      <SlipsPreview data={slips} onClose={() => setSlips(null)} />
     </div>
   );
 }

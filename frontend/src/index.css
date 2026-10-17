@@ -82,6 +82,15 @@ h1, h2, h3, h4, .font-display {
     background-size: 32px 32px;
 }
 
+@media print {
+    body * { visibility: hidden; }
+    [role="dialog"] { position: static !important; transform: none !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; }
+    .print-slips, .print-slips * { visibility: visible; }
+    .print-slips { position: absolute; left: 0; top: 0; width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; }
+    .slip { break-inside: avoid; page-break-inside: avoid; }
+    .no-print { display: none !important; }
+}
+
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;

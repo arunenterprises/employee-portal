@@ -6,6 +6,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import re
+import secrets
 import base64
 import logging
 from datetime import datetime, timezone, timedelta, date as date_cls
@@ -300,6 +301,25 @@ async def reset_employee_password(emp_id: str, body: ResetPasswordIn, admin: dic
     await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": True}})
     await db.login_attempts.delete_many({"identifier": {"$in": [doc["email"], doc["employee_id"].lower()]}})
     return {"ok": True}
+
+
+class SlipsIn(BaseModel):
+    user_ids: List[str] = Field(min_length=1, max_length=500)
+
+
+SLIP_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+
+
+@api.post("/admin/credential-slips")
+async def credential_slips(body: SlipsIn, admin: dict = Depends(admin_user)):
+    slips = []
+    for uid in dict.fromkeys(body.user_ids):
+        doc = await get_emp_or_404(uid)
+        pwd = "".join(secrets.choice(SLIP_CHARS) for _ in range(8))
+        await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(pwd), "must_change_password": True, "slip_issued_at": now_utc()}})
+        slips.append({"id": uid, "name": doc.get("name"), "employee_id": doc.get("employee_id"), "designation": doc.get("designation"),
+                      "department": doc.get("department"), "email": doc.get("email"), "password": pwd})
+    return {"slips": slips, "issued_at": now_utc().isoformat()}
 
 
 @api.patch("/admin/employees/{emp_id}/access")

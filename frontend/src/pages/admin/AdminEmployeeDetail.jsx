@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Pencil, Trash2, KeyRound } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, KeyRound, Printer } from "lucide-react";
+import { SlipsPreview, issueSlips } from "@/components/CredentialSlips";
 import MediaCard from "@/components/MediaCard";
 import { ResetPasswordDialog, AccessSwitch } from "@/components/EmployeeAccess";
 import { toast } from "sonner";
@@ -50,6 +51,11 @@ export default function AdminEmployeeDetail() {
   const [del, setDel] = useState(false);
   const [reset, setReset] = useState(false);
   const [media, setMedia] = useState(null);
+  const [slips, setSlips] = useState(null);
+  const [slipConfirm, setSlipConfirm] = useState(false);
+  const printSlip = async () => {
+    try { setSlips(await issueSlips([id])); setE((x) => ({ ...x, must_change_password: true })); } catch (err) { toast.error(errMsg(err)); }
+  };
 
   const loadRecords = useCallback(() => { api.get("/admin/service-records", { params: { user_id: id } }).then((r) => setRecords(r.data)); }, [id]);
   useEffect(() => {
@@ -109,6 +115,7 @@ export default function AdminEmployeeDetail() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-md bg-white/10 px-3 h-10 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal <AccessSwitch employee={e} onChange={setE} /></span>
+            <Button variant="secondary" onClick={() => setSlipConfirm(true)} data-testid="print-slip-btn"><Printer size={15} className="mr-2" />Print slip</Button>
             <Button variant="secondary" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={15} className="mr-2" />Reset password</Button>
             <Button variant="secondary" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={15} className="mr-2" />Edit</Button>
             <Button variant="secondary" onClick={() => setDel(true)} className="text-rose-600 hover:text-rose-700" data-testid="delete-employee-btn"><Trash2 size={15} className="mr-2" />Delete</Button>
@@ -149,6 +156,19 @@ export default function AdminEmployeeDetail() {
       </div>
       <EmployeeFormDialog open={edit} onOpenChange={setEdit} employee={e} onSaved={setE} />
       <ResetPasswordDialog open={reset} onOpenChange={setReset} employee={e} />
+      <SlipsPreview data={slips} onClose={() => setSlips(null)} />
+      <AlertDialog open={slipConfirm} onOpenChange={setSlipConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Generate credential slip?</AlertDialogTitle>
+            <AlertDialogDescription>A NEW password will be set for {e.name}. The old password will stop working.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="cancel-slip">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={printSlip} data-testid="confirm-slip">Generate</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={del} onOpenChange={setDel}>
         <AlertDialogContent>
           <AlertDialogHeader>
