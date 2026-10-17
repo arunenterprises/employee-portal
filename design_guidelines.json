@@ -1,0 +1,137 @@
+{
+  "project_title": "WorkPulse - Enterprise Employee & HR Service Portal",
+  "theme": "Light & Dark Mode Adaptive (Default: Crisp Slate Light with Deep Navy Dark Mode Accent)",
+  "emotional_archetype": "Archetype 1: Organic & Earthy meets High-Performance Productivity (Trust, Precision, Warmth)",
+  "design_persona": "E1 Anti-AI Designer - Tactile High-Contrast Precision",
+  "tech_stack": {
+    "framework": "React (JavaScript .js/.jsx)",
+    "styling": "Tailwind CSS + CSS Custom Properties",
+    "components": "Shadcn UI (Customized primitives: Dialog, Tabs, Select, Table, Badge, Avatar, Toast/Sonner)",
+    "icons": "lucide-react",
+    "motion": "framer-motion (subtle micro-interactions, smooth state changes)",
+    "charts": "recharts"
+  },
+  "typography": {
+    "anti_default_rule": "DO NOT use Inter or Roboto for headings. Use Manrope or Outfit for Headings and IBM Plex Sans / DM Sans for Body.",
+    "heading_font": "Outfit, sans-serif",
+    "body_font": "DM Sans, sans-serif",
+    "mono_font": "JetBrains Mono, monospace",
+    "scale_hierarchy": {
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2_section": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h3_subsection": "text-xl sm:text-2xl font-semibold tracking-normal",
+      "card_title": "text-base sm:text-lg font-semibold tracking-normal",
+      "body": "text-sm sm:text-base leading-relaxed text-slate-700 dark:text-slate-300",
+      "small_label": "text-xs uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400"
+    }
+  },
+  "color_system": {
+    "palette": {
+      "primary": "hsl(221.2 83.2% 53.3%)",
+      "primary_hover": "hsl(221.2 83.2% 45%)",
+      "primary_foreground": "hsl(0 0% 100%)",
+      "secondary": "hsl(210 40% 96.1%)",
+      "secondary_foreground": "hsl(222.2 47.4% 11.2%)",
+      "accent_emerald": "#10B981",
+      "accent_amber": "#F59E0B",
+      "accent_rose": "#F43F5E",
+      "accent_violet": "#6366F1",
+      "background_light": "#F8FAFC",
+      "surface_light": "#FFFFFF",
+      "border_light": "hsl(214.3 31.8% 91.4%)",
+      "background_dark": "#0B0F17",
+      "surface_dark": "#111827",
+      "border_dark": "#1F2937"
+    },
+    "contrast_rules": "Always explicitly specify hover text colors. Never use generic full-screen gradients. Tint neutral grays with blue/slate undertones. APCA compliant contrast for all badges and buttons."
+  },
+  "layout_and_spacing": {
+    "spacing_philosophy": "Generous Spacing (2-3x typical). Containers with borders must have internal padding (p-6 or p-8).",
+    "dashboard_grid": "Bento Grid System - Mode B High Density Grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "hero_punch_card": "col-span-1 md:col-span-2 row-span-2 with high visual focus, live clock, GPS status, camera selfie preview modal",
+    "card_style": "Flat solid surfaces, subtle 1px border (border-slate-200 dark:border-slate-800), rounded-xl, soft ambient shadow (shadow-sm hover:shadow-md transition-shadow)"
+  },
+  "key_features_and_modules": {
+    "auth_module": {
+      "description": "Shared Login screen with Role Toggle (Employee / Admin-HR). Email/Employee ID + Password login. Quick demo credentials buttons for easy testing.",
+      "test_ids": {
+        "login_form": "login-form",
+        "email_input": "login-email-input",
+        "password_input": "login-password-input",
+        "role_select": "login-role-select",
+        "submit_btn": "login-submit-button",
+        "demo_emp_btn": "demo-employee-login-button",
+        "demo_admin_btn": "demo-admin-login-button"
+      }
+    },
+    "employee_portal": {
+      "dashboard_view": {
+        "header_nav": "Sticky header with user avatar, name, designation, status badge (Punched In / Out), theme toggle, role switcher, logout.",
+        "attendance_widget": "Current time digital clock, Punch In / Punch Out button. Triggers camera selfie modal + simulated GPS coordinate capture (Latitude, Longitude, Accuracy). History log table with selfie thumbnails, punch time, location link, work duration.",
+        "service_record_widget": "Timeline view of employee journey: Joining Date, Department, Current Designation, Salary band, Transfer/Promotion history notes.",
+        "quick_request_widget": "Tabbed or Modal Form for Leave Request (Date range, Reason, Type), Advance Cash Request (Amount, EMI/repayment note, Reason), Payslip Request. Status tracker with color-coded badges (Pending: Amber, Approved: Emerald, Rejected: Rose).",
+        "payslips_widget": "List of available monthly payslips (Basic pay, HRA, Allowances, Deductions, Net Pay). PDF View / Download generator."
+      }
+    },
+    "admin_hr_panel": {
+      "description": "Full HR Management view for Admin users to manage employees, verify attendance selfies, approve requests, and generate payslips.",
+      "views": [
+        "Employee Directory & CRUD (Add new employee with ID, name, email, department, salary structure, designation).",
+        "Attendance Monitoring Board (Filter by date/employee, view selfie photos, GPS map pins, punch times, late flags).",
+        "Request Approval Queue (Review Leave, Advance, and Payslip requests with Approve / Reject actions + admin comments).",
+        "Service Record Manager (Add promotion, department transfer, or appraisal events to an employee record).",
+        "Payslip Generator & PDF Uploader (Form to enter basic, allowances, deductions, net salary or upload existing PDF file)."
+      ]
+    }
+  },
+  "camera_and_gps_guidelines": {
+    "camera_modal": "Use navigator.mediaDevices.getUserMedia for live webcam selfie capture when Punching In/Out. Fallback to file upload/mock selfie capture if camera permission is denied.",
+    "gps_geolocation": "Use navigator.geolocation.getCurrentPosition to get latitude/longitude + street name reverse geocoding mock. Display location status tag ('Location Verified')."
+  },
+  "accessibility_and_testing": {
+    "test_id_convention": "All interactive elements MUST have role-based kebab-case data-testid attributes.",
+    "key_test_ids": [
+      "nav-logout-btn",
+      "punch-in-btn",
+      "punch-out-btn",
+      "punch-selfie-modal",
+      "capture-selfie-btn",
+      "confirm-punch-btn",
+      "request-leave-btn",
+      "request-advance-btn",
+      "request-payslip-btn",
+      "leave-type-select",
+      "leave-start-date",
+      "leave-end-date",
+      "leave-reason-input",
+      "submit-request-btn",
+      "admin-approve-btn",
+      "admin-reject-btn",
+      "add-employee-btn",
+      "employee-search-input",
+      "download-payslip-btn",
+      "theme-toggle-btn"
+    ]
+  },
+  "image_urls": {
+    "avatars": [
+      "https://images.unsplash.com/photo-1560250097-0b93528c311a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwxfHxjb3Jwb3JhdGUlMjBwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGF2YXRhcnxlbnwwfHx8fDE3OTIyNTQ3ODh8MA&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHw0fHxjb3Jwb3JhdGUlMjBwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGF2YXRhcnxlbnwwfHx8fDE3OTIyNTQ3ODh8MA&ixlib=rb-4.1.0&q=85",
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwyfHxjb3Jwb3JhdGUlMjBwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGF2YXRhcnxlbnwwfHx8fDE3OTIyNTQ3ODh8MA&ixlib=rb-4.1.0&q=85",
+      "https://images.pexels.com/photos/11655430/pexels-photo-11655430.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    ],
+    "workplace_backgrounds": [
+      "https://images.pexels.com/photos/7580707/pexels-photo-7580707.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "https://images.pexels.com/photos/39204858/pexels-photo-39204858.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Ensure both Employee View and Admin/HR View are seamless, rich in functionality, and fully interactive.",
+    "Provide mock data pre-populated with realistic employees, attendance records (with selfies and GPS tags), leave requests, advance requests, service timelines, and payslips.",
+    "Make the Punch In/Out workflow visually stunning: opening webcam video feed (or high quality camera UI fallback), showing real-time GPS coordinates, capturing the snapshot, and recording the attendance entry.",
+    "Ensure payslips can be generated dynamically as PDF/printable layout or previewed directly in a modal with breakups for basic salary, HRA, TA, PF, Tax, and net amount.",
+    "Add search, status filters, and date pickers across all lists and tables.",
+    "Ensure text contrast meets APCA/WCAG standards with explicit hover states.",
+    "Include clear data-testid attributes on all interactive elements as defined in key_test_ids."
+  ]
+}
