@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MapPin, CalendarX2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Empty } from "@/components/common";
-import { fmtDate, fmtTime, fmtHours, mapLink } from "@/lib/api";
+import { fmtDate, fmtTime, fmtHours, fmtLate, mapLink } from "@/lib/api";
 
 const PunchCell = ({ p, onView, late }) => {
   if (!p) return <span className="text-muted-foreground">—</span>;
@@ -11,7 +11,7 @@ const PunchCell = ({ p, onView, late }) => {
     <div className="flex items-center gap-3">
       {p.selfie && <button onClick={() => onView(p.selfie)} className="shrink-0"><img src={p.selfie} alt="selfie" className="h-10 w-10 rounded-md object-cover ring-1 ring-slate-200 hover:ring-primary transition" /></button>}
       <div>
-        <div className="font-mono text-sm font-semibold">{fmtTime(p.time)}{late && <span className="ml-1.5 rounded bg-amber-100 text-amber-800 text-[10px] font-sans font-semibold px-1.5 py-0.5" data-testid="late-badge">Late {late}m</span>}</div>
+        <div className="font-mono text-sm font-semibold">{fmtTime(p.time)}{late && <span className="ml-1.5 rounded bg-amber-100 text-amber-800 text-[10px] font-sans font-semibold px-1.5 py-0.5" data-testid="late-badge">Late {fmtLate(late)}</span>}</div>
         {p.manual ? <span className="text-xs text-blue-700" data-testid="manual-punch-tag">Missed punch · HR approved</span>
           : link ? <a href={link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-1"><MapPin size={11} />Map</a>
           : <span className="text-xs text-amber-600">No GPS</span>}

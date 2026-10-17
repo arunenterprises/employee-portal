@@ -118,7 +118,7 @@ export default function PunchDialog({ open, mode, onClose, onDone }) {
 
         <div className="rounded-lg border bg-slate-50 px-4 py-3" data-testid="punch-time-view">
           <div className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground flex items-center gap-1"><Clock size={12} />Punch time (auto, not editable)</div>
-          <div className="font-mono text-2xl font-semibold mt-1">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+          <div className="font-mono text-2xl font-semibold mt-1">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Kolkata" })}</div>
           <div className="text-xs text-muted-foreground">{now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
           {loc && <div className="font-mono text-xs text-emerald-700 mt-1" data-testid="gps-status">GPS {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)} (±{Math.round(loc.accuracy)}m)</div>}
         </div>

@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 3: Late Mark + Missed Punch request. Backend 14/14 pytest pass (TEST_ employee only). Frontend E2E (TEST_UI1 employee + admin) passed: late warning, punch dialog with fake camera + GPS checks, 30s countdown auto-submit, confirm-punch early submit, today-late-badge, missed punch form + server validation toasts, admin type filter 'Missed Punch', approve -> manual-punch-tag + late-badge + 8h 30m, stat-late-today. Run at ~23:40 IST using the temporary .env windows. No vendor sync triggered; all TEST_ employees deleted (cascade).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AttendanceTable / EmpDashboard / PunchDialog", "issues": ["fmtTime/clock use the browser's timezone, not Asia/Kolkata. If the browser is not on IST, a missed punch of 09:50 IST shows as 04:20 am. Pass timeZone:'Asia/Kolkata' to toLocaleTimeString/DateString."]},
+      {"screen": "Late badge", "issues": ["Large late values show as raw minutes (e.g. 'Late 1419m'). Consider showing 'Late 23h 39m' or 'Late 9h 49m'."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_late_missed_punch.py", "/app/test_reports/pytest/pytest_iter3.xml"],
+  "action_items": [
+    "IMPORTANT: revert backend/.env PUNCH_IN_WINDOW/PUNCH_OUT_WINDOW to production values (09:10-09:30 etc.) and restart backend",
+    "Optional: format times in the Asia/Kolkata timezone in the frontend",
+    "Optional: show large late values in hours and minutes"
+  ],
+  "critical_code_review_comments": [
+    "Missed-punch future date check works on the server; the client relies on the max={localDate()} attribute (browser local date), which is fine.",
+    "apply_missed_punch: if missed='in' is approved on a date that already has a punch_out (rare), late is recomputed but work_minutes stays correct. OK.",
+    "vendor_sync.push_attendance: late map and P/L/H codes look correct by code review only. It was NOT executed against the live portal, as instructed.",
+    "pytest config uses xdist + random order: run tests/test_late_missed_punch.py with '-n 0 -p no:randomly' because the tests depend on module fixtures and run in a fixed order."
+  ],
+  "updated_files": ["/app/backend/tests/test_late_missed_punch.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "TEST_L<tag> (pytest) and TEST_UI1 (UI) employees were created and deleted. No real employees were touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && REACT_APP_BACKEND_URL=... pytest tests/test_late_missed_punch.py -n 0 -p no:randomly. The late tests assume the temporary windows (in 00:00-00:01). With production windows, test_config/test_late_punch_in will need adjusting. Playwright fake camera works after granting camera+geolocation permissions on the context."
+}

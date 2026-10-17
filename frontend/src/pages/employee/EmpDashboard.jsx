@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Panel, StatCard, StatusBadge, Empty } from "@/components/common";
 import PunchDialog from "@/components/PunchDialog";
 import { useAuth } from "@/context/AuthContext";
-import { api, fmtTime, fmtINR, fmtHours, monthLabel, fmtDate } from "@/lib/api";
+import { api, fmtTime, fmtLate, fmtINR, fmtHours, monthLabel, fmtDate } from "@/lib/api";
 
 const LiveClock = () => {
   const [now, setNow] = useState(new Date());
@@ -15,7 +15,7 @@ const LiveClock = () => {
   }, []);
   return (
     <div>
-      <div className="font-mono text-4xl sm:text-5xl font-semibold tracking-tight" data-testid="live-clock">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</div>
+      <div className="font-mono text-4xl sm:text-5xl font-semibold tracking-tight" data-testid="live-clock">{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Kolkata" })}</div>
       <div className="text-sm text-slate-400 mt-1">{now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
     </div>
   );
@@ -56,7 +56,7 @@ const PunchCard = ({ today, cfg, onPunch }) => {
       </div>
       <LiveClock />
       <div className="grid grid-cols-3 gap-4 mt-8 text-sm">
-        <div><div className="text-slate-400 text-xs">Punch in</div><div className="font-mono font-semibold mt-1" data-testid="today-in-time">{fmtTime(inT)}</div>{today?.late && <span className="inline-block mt-1 rounded bg-amber-400/20 text-amber-300 text-[11px] font-semibold px-1.5 py-0.5" data-testid="today-late-badge">Late {today.late_minutes}m</span>}</div>
+        <div><div className="text-slate-400 text-xs">Punch in</div><div className="font-mono font-semibold mt-1" data-testid="today-in-time">{fmtTime(inT)}</div>{today?.late && <span className="inline-block mt-1 rounded bg-amber-400/20 text-amber-300 text-[11px] font-semibold px-1.5 py-0.5" data-testid="today-late-badge">Late {fmtLate(today.late_minutes)}</span>}</div>
         <div><div className="text-slate-400 text-xs">Punch out</div><div className="font-mono font-semibold mt-1" data-testid="today-out-time">{fmtTime(outT)}</div></div>
         <div><div className="text-slate-400 text-xs">Worked</div><div className="font-mono font-semibold mt-1">{fmtHours(today?.work_minutes)}</div></div>
       </div>
