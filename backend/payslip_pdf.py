@@ -1,4 +1,5 @@
 from io import BytesIO
+from xml.sax.saxutils import escape
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -10,6 +11,11 @@ INK = colors.HexColor("#0F172A")
 MUTED = colors.HexColor("#64748B")
 LINE = colors.HexColor("#E2E8F0")
 BRAND = colors.HexColor("#1D4ED8")
+
+
+def num(v):
+    v = float(v or 0)
+    return str(int(v)) if v.is_integer() else str(v)
 
 
 def money(v):
@@ -25,7 +31,7 @@ def build_payslip_pdf(slip: dict, emp: dict, company: dict) -> bytes:
     month_label = datetime.strptime(slip["month"], "%Y-%m").strftime("%B %Y")
 
     small = ParagraphStyle("sm", parent=sub, fontSize=8.5, leading=11)
-    head_text = [Paragraph(company["name"], title), Paragraph(company["address"], small), Paragraph(company["contact"], small)]
+    head_text = [Paragraph(escape(company["name"]), title), Paragraph(escape(company["address"]), small), Paragraph(escape(company["contact"]), small)]
     head = Table([[Image(company["logo"], width=26 * mm, height=18.4 * mm), head_text]], colWidths=[30 * mm, 144 * mm])
     head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                               ("LINEBELOW", (0, 0), (-1, -1), 1.2, BRAND), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
@@ -38,7 +44,7 @@ def build_payslip_pdf(slip: dict, emp: dict, company: dict) -> bytes:
         ["Designation", g("designation", ""), "Department", g("department", "")],
         ["Date of Joining", g("joining_date", ""), "PAN", g("pan", "")],
         ["Bank A/C", g("bank_account", ""), "UAN", g("uan", "")],
-        ["Working Days", str(slip.get("working_days", 0)), "Paid Days", str(slip.get("paid_days", 0))],
+        ["Working Days", num(slip.get("working_days")), "Paid Days", num(slip.get("paid_days"))],
     ]
     t = Table(info, colWidths=[32 * mm, 54 * mm, 30 * mm, 58 * mm])
     t.setStyle(TableStyle([

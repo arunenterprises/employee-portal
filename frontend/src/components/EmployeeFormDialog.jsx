@@ -55,7 +55,7 @@ export default function EmployeeFormDialog({ open, onOpenChange, employee, onSav
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {fields.map(([k, label, type = "text", req]) => (
                   <Field key={k} label={k === "password" ? (employee ? "New password (leave blank to keep)" : "Password *") : label}>
-                    <Input type={k === "password" ? "text" : type} required={req || (k === "password" && !employee)} minLength={k === "password" ? 6 : undefined}
+                    <Input type={k === "password" ? "text" : type} readOnly={k === "employee_id" && employee?.source === "vendor"} required={req || (k === "password" && !employee)} minLength={k === "password" ? 6 : undefined}
                       value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} data-testid={`emp-form-${k}`} />
                   </Field>
                 ))}

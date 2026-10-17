@@ -20,6 +20,12 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Admin: dashboard stats, employees CRUD (active/inactive), service records add/delete, attendance monitor with selfie viewer + map links, request approve/reject with comment, payslip generate (earnings/deductions) & PDF upload; publishing auto-approves matching payslip requests
 - Tested: iteration_1 (backend 26/27 → brute-force fixed, frontend 100%)
 
+## Implemented (2026-10-17, iteration 2)
+- Branding: ARUN ENTERPRISES logo/name in sidebar, login page redesigned like vendor portal (address, toll free, email, web), payslip PDF header with logo + address
+- Vendor Portal link (https://arunenterprises.online/api): employees pulled from vendor HR keyed on empCode (= employee_id, primary key; vendor_id stored); attendance punches + approved leaves pushed back into vendor monthly attendance docs (att_{empId}_{YYYYMM}; P only fills empty/A days, leaves CL/SL/EL/LWP/HL fill empty days). Admin "Sync now" button + hourly cron (.emergent/crons.yml -> /api/cron/vendor-sync)
+- Synced employees: initial password = DOB DDMMYYYY (else mobile); change-password banner
+- Tested: iteration_2 backend 37/37, frontend 100%
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

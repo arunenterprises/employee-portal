@@ -578,6 +578,8 @@ async def my_summary(user: dict = Depends(employee_user)):
 
 
 # ---------- vendor portal sync ----------
+_bg_tasks = set()
+
 @api.post("/admin/vendor-sync")
 async def vendor_sync_now(admin: dict = Depends(admin_user)):
     return await run_sync(db, hash_password, datetime.now(TZ).date(), "manual")
@@ -603,7 +605,9 @@ async def cron_vendor_sync(request: Request):
     run_id = request.headers.get("X-Webhook-Id") or (body or {}).get("run_id")
     if run_id and await db.sync_logs.find_one({"run_id": run_id}):
         return {"accepted": True, "duplicate": True}
-    asyncio.create_task(run_sync(db, hash_password, datetime.now(TZ).date(), "cron", run_id))
+    task = asyncio.create_task(run_sync(db, hash_password, datetime.now(TZ).date(), "cron", run_id))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
     return {"accepted": True}
 
 

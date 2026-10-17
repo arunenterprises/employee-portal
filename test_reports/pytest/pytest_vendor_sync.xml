@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="10" time="11.322" timestamp="2026-10-17T17:46:21.323037+00:00" hostname="agent-env-260269ce-e7c8-49c3-93cd-6330cf185cb7"><testcase classname="tests.test_vendor_sync.TestManualSync" name="test_sync_now_and_no_duplicates" time="4.949" /><testcase classname="tests.test_vendor_sync.TestManualSync" name="test_status" time="0.120" /><testcase classname="tests.test_vendor_sync.TestManualSync" name="test_status_requires_admin" time="0.204" /><testcase classname="tests.test_vendor_sync.TestManualSync" name="test_real_employee_details" time="0.106" /><testcase classname="tests.test_vendor_sync.TestCron" name="test_no_auth" time="0.096" /><testcase classname="tests.test_vendor_sync.TestCron" name="test_wrong_bearer" time="0.100" /><testcase classname="tests.test_vendor_sync.TestCron" name="test_valid_and_duplicate" time="3.493" /><testcase classname="tests.test_vendor_sync.TestRealLogin" name="test_login[AE/EMP/000005/26-27]" time="0.513" /><testcase classname="tests.test_vendor_sync.TestRealLogin" name="test_login[ae/emp/000005/26-27]" time="0.510" /><testcase classname="tests.test_vendor_sync" name="test_payslip_pdf_header" time="0.981"><failure message="AssertionError: assert 'ARUN ENTERPRISES' in ''">admin = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YWQzYTUzMWUwM2UzMjFlNTdkYzM2NjAiLCJyb2xlIjoiYWRtaW4iLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzkyMzAyMzgzfQ.eYQAy-wSYL5zpp5TTjKd7QNhTiyPFgMwkKuEF9ve-dw'
+
+    def test_payslip_pdf_header(admin):
+        p = {"employee_id": f"TEST_V{TAG}", "name": f"TEST_Vend{TAG}", "email": f"test_v{TAG.lower()}@example.com",
+             "password": "Passw0rd!", "basic": 20000, "hra": 5000, "allowances": 1000}
+        r = requests.post(f"{API}/admin/employees", headers=hdr(admin), json=p)
+        assert r.status_code in (200, 201), r.text
+        uid = r.json()["id"]
+        try:
+            g = requests.post(f"{API}/admin/payslips/generate", headers=hdr(admin),
+                              json={"user_id": uid, "month": "2026-01", "working_days": 26, "paid_days": 26,
+                                    "earnings": [{"label": "Basic", "amount": 20000}], "deductions": [{"label": "PF", "amount": 1800}]})
+            assert g.status_code in (200, 201), g.text
+            sid = g.json()["id"]
+            pdf = requests.get(f"{API}/payslips/{sid}/pdf", headers=hdr(admin))
+            assert pdf.status_code == 200 and pdf.content[:4] == b"%PDF"
+            txt = _pdf_text(pdf.content)
+&gt;           assert "ARUN ENTERPRISES" in txt
+E           AssertionError: assert 'ARUN ENTERPRISES' in ''
+
+tests/test_vendor_sync.py:146: AssertionError</failure></testcase></testsuite></testsuites>

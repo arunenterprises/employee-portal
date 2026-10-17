@@ -73,32 +73,42 @@ async def pull_employees(db, client, headers, hash_password) -> dict:
     r = await client.get(f"{_url()}/employees", headers=headers)
     r.raise_for_status()
     created = updated = skipped = 0
+    errors = []
     now = datetime.now(timezone.utc)
     for v in r.json():
-        code = (v.get("empCode") or "").strip().upper()
-        if not code or not v.get("id"):
-            skipped += 1
+        try:
+            res = await _upsert_one(db, v, hash_password, now)
+        except Exception as ex:
+            errors.append(f"{v.get('empCode')}: {str(ex)[:120]}")
             continue
-        data = map_employee(v, code)
-        existing = await db.users.find_one({"$or": [{"vendor_id": v["id"]}, {"employee_id": code}], "role": "employee"})
-        if existing:
-            if not existing.get("email") or existing["email"].endswith("@employee.local"):
-                data["email"] = await _pick_email(db, v, code, existing["_id"])
-            await db.users.update_one({"_id": existing["_id"]}, {"$set": data | {"synced_at": now}})
-            updated += 1
-            continue
-        data.update({
-            "email": await _pick_email(db, v, code), "role": "employee", "created_at": now, "synced_at": now,
-            "password_hash": hash_password(initial_password(v, code)), "must_change_password": True,
+        created += res == "created"
+        updated += res == "updated"
+        skipped += res == "skipped"
+    return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
+
+
+async def _upsert_one(db, v, hash_password, now) -> str:
+    code = (v.get("empCode") or "").strip().upper()
+    if not code or not v.get("id"):
+        return "skipped"
+    data = map_employee(v, code)
+    existing = await db.users.find_one({"$or": [{"vendor_id": v["id"]}, {"employee_id": code}], "role": "employee"})
+    if existing:
+        if not existing.get("email") or existing["email"].endswith("@employee.local"):
+            data["email"] = await _pick_email(db, v, code, existing["_id"])
+        await db.users.update_one({"_id": existing["_id"]}, {"$set": data | {"synced_at": now}})
+        return "updated"
+    data.update({
+        "email": await _pick_email(db, v, code), "role": "employee", "created_at": now, "synced_at": now,
+        "password_hash": hash_password(initial_password(v, code)), "must_change_password": True,
+    })
+    res = await db.users.insert_one(data)
+    if data["joining_date"]:
+        await db.service_records.insert_one({
+            "user_id": str(res.inserted_id), "date": data["joining_date"], "type": "joining",
+            "title": f"Joined as {data['designation'] or 'Employee'}", "notes": data["department"], "created_at": now,
         })
-        res = await db.users.insert_one(data)
-        if data["joining_date"]:
-            await db.service_records.insert_one({
-                "user_id": str(res.inserted_id), "date": data["joining_date"], "type": "joining",
-                "title": f"Joined as {data['designation'] or 'Employee'}", "notes": data["department"], "created_at": now,
-            })
-        created += 1
-    return {"created": created, "updated": updated, "skipped": skipped}
+    return "created"
 
 
 def _months(today: date_cls):

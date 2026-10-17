@@ -19,10 +19,10 @@ const EMAIL = "info@arunenterprises.online";
 const WEB = "www.arunenterprises.com.in";
 
 const Brand = ({ light }) => (
-  <div className="flex items-center gap-4" data-testid="login-company-card">
+  <div className="flex items-center gap-4" data-testid={light ? "login-company-card-mobile" : "login-company-card"}>
     <img src="/arun-logo.jpg" alt="Arun Enterprises logo" className="h-14 w-14 rounded-xl object-contain p-1 bg-white shrink-0 ring-1 ring-slate-200" />
     <div>
-      <div className={`font-display text-2xl tracking-tight ${light ? "text-slate-900 font-bold" : "font-semibold"}`} data-testid="login-company-name">ARUN ENTERPRISES</div>
+      <div className={`font-display text-2xl tracking-tight ${light ? "text-slate-900 font-bold" : "font-semibold"}`} data-testid={light ? "login-company-name-mobile" : "login-company-name"}>ARUN ENTERPRISES</div>
       <div className={`text-[10px] uppercase tracking-[0.2em] mt-1 ${light ? "text-slate-500" : "text-slate-300"}`}>Our quality oriented service's is first priority</div>
     </div>
   </div>
@@ -95,8 +95,8 @@ export default function Login() {
             {busy && <Loader2 size={16} className="mr-2 animate-spin" />}Sign in
           </Button>
           <p className="text-xs text-muted-foreground">Forgot password? Contact your HR / admin to reset it.</p>
-          <div className="border-t pt-6 text-center text-xs text-slate-400 leading-relaxed" data-testid="login-footer-address">
-            {ADDRESS}<br />Toll Free: {PHONE} · {EMAIL}
+          <div className="border-t pt-6 text-center text-xs text-slate-500 leading-relaxed" data-testid="login-footer-address">
+            {ADDRESS}<br />Toll Free: {PHONE} · {EMAIL}<br />{WEB}
           </div>
         </form>
       </section>
