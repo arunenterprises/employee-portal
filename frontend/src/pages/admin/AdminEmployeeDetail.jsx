@@ -96,8 +96,8 @@ export default function AdminEmployeeDetail() {
         <Panel className="lg:col-span-2" data-testid="employee-detail-info">
           <div className="flex items-center justify-between mb-6"><h3 className="font-display text-lg font-semibold">Employee profile</h3><Badge2 tone={e.active !== false ? "approved" : "rejected"}>{e.active !== false ? "Active" : "Inactive"}</Badge2></div>
           <div className="flex flex-col md:flex-row gap-8">
-            <div className="md:w-48 shrink-0"><MediaCard media={media} onUpload={uploadMedia} stacked /></div>
             <div className="flex-1 min-w-0 space-y-7">{groups.map(([t, items]) => <Group key={t} title={t} items={items} />)}</div>
+            <div className="md:w-48 shrink-0 md:border-l md:pl-6"><MediaCard media={media} onUpload={uploadMedia} stacked /></div>
           </div>
         </Panel>
         <Panel className="self-start">
