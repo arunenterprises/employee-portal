@@ -97,7 +97,7 @@ async def current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
     user = await db.users.find_one({"_id": oid(payload["sub"])})
-    if not user or not user.get("active", True):
+    if not user or not user.get("active", True) or user.get("portal_enabled") is False:
         raise HTTPException(status_code=401, detail="User not found")
     return ser(user)
 
@@ -156,6 +156,8 @@ async def login(body: LoginIn, request: Request):
         raise HTTPException(status_code=401, detail="Invalid email/employee ID or password")
     if not user.get("active", True):
         raise HTTPException(status_code=403, detail="Your account is inactive. Contact HR.")
+    if user.get("portal_enabled") is False:
+        raise HTTPException(status_code=403, detail="Your portal access is disabled. Contact HR.")
     await db.login_attempts.delete_one({"identifier": key})
     return {"token": make_token(str(user["_id"]), user["role"]), "user": ser(user)}
 
@@ -170,7 +172,7 @@ async def change_password(body: ChangePasswordIn, user: dict = Depends(current_u
     doc = await db.users.find_one({"_id": oid(user["id"])})
     if not verify_password(body.current_password, doc["password_hash"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": False}})
+    await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": False, "password_set_in_app": True}})
     return {"ok": True}
 
 
@@ -267,9 +269,76 @@ async def delete_employee(emp_id: str, admin: dict = Depends(admin_user)):
     res = await db.users.delete_one({"_id": oid(emp_id), "role": "employee"})
     if not res.deleted_count:
         raise HTTPException(status_code=404, detail="Employee not found")
-    for col in (db.service_records, db.attendance, db.requests, db.payslips):
+    for col in (db.service_records, db.attendance, db.requests, db.payslips, db.employee_media):
         await col.delete_many({"user_id": emp_id})
     return {"ok": True}
+
+
+class ResetPasswordIn(BaseModel):
+    new_password: str = Field(min_length=6)
+
+
+class AccessIn(BaseModel):
+    enabled: bool
+
+
+class MediaIn(BaseModel):
+    photo: Optional[str] = None
+    signature: Optional[str] = None
+
+
+async def get_emp_or_404(emp_id: str) -> dict:
+    doc = await db.users.find_one({"_id": oid(emp_id), "role": "employee"})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return doc
+
+
+@api.post("/admin/employees/{emp_id}/reset-password")
+async def reset_employee_password(emp_id: str, body: ResetPasswordIn, admin: dict = Depends(admin_user)):
+    doc = await get_emp_or_404(emp_id)
+    await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": True}})
+    await db.login_attempts.delete_many({"identifier": {"$in": [doc["email"], doc["employee_id"].lower()]}})
+    return {"ok": True}
+
+
+@api.patch("/admin/employees/{emp_id}/access")
+async def set_employee_access(emp_id: str, body: AccessIn, admin: dict = Depends(admin_user)):
+    doc = await get_emp_or_404(emp_id)
+    await db.users.update_one({"_id": doc["_id"]}, {"$set": {"portal_enabled": body.enabled}})
+    return ser(await db.users.find_one({"_id": doc["_id"]}))
+
+
+async def media_for(user_id: str) -> dict:
+    m = await db.employee_media.find_one({"user_id": user_id}) or {}
+    return {"photo": m.get("photo"), "signature": m.get("signature"), "source": m.get("source")}
+
+
+@api.get("/admin/employees/{emp_id}/media")
+async def admin_employee_media(emp_id: str, admin: dict = Depends(admin_user)):
+    await get_emp_or_404(emp_id)
+    return await media_for(emp_id)
+
+
+@api.post("/admin/employees/{emp_id}/media")
+async def upload_employee_media(emp_id: str, body: MediaIn, admin: dict = Depends(admin_user)):
+    await get_emp_or_404(emp_id)
+    upd = {}
+    for k in ("photo", "signature"):
+        v = getattr(body, k)
+        if v is not None:
+            if not v.startswith("data:image/") or len(v) > 800_000:
+                raise HTTPException(status_code=400, detail=f"Invalid {k} image (max ~500 KB)")
+            upd[k] = v
+    if not upd:
+        raise HTTPException(status_code=400, detail="Nothing to upload")
+    await db.employee_media.update_one({"user_id": emp_id}, {"$set": upd | {"source": "admin", "updated_at": now_utc()}}, upsert=True)
+    return await media_for(emp_id)
+
+
+@api.get("/me/media")
+async def my_media(user: dict = Depends(employee_user)):
+    return await media_for(user["id"])
 
 
 # ---------- service records ----------
@@ -728,12 +797,13 @@ async def startup():
     await db.requests.create_index([("user_id", 1), ("created_at", -1)])
     await db.payslips.create_index([("user_id", 1), ("month", -1)])
     await db.users.create_index("vendor_id", sparse=True)
+    await db.employee_media.create_index("user_id", unique=True)
     await db.sync_logs.create_index([("started_at", -1)])
     email, pwd = os.environ["ADMIN_EMAIL"].lower(), os.environ["ADMIN_PASSWORD"]
     existing = await db.users.find_one({"email": email})
     if existing is None:
         await db.users.insert_one({"email": email, "password_hash": hash_password(pwd), "name": "Admin", "role": "admin", "active": True, "created_at": now_utc()})
-    elif not verify_password(pwd, existing["password_hash"]):
+    elif not existing.get("password_set_in_app") and not verify_password(pwd, existing["password_hash"]):
         await db.users.update_one({"_id": existing["_id"]}, {"$set": {"password_hash": hash_password(pwd)}})
 
 

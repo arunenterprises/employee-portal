@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, KeyRound } from "lucide-react";
+import MediaCard from "@/components/MediaCard";
+import { ResetPasswordDialog, AccessSwitch } from "@/components/EmployeeAccess";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +45,19 @@ export default function AdminEmployeeDetail() {
   const [records, setRecords] = useState([]);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
+  const [reset, setReset] = useState(false);
+  const [media, setMedia] = useState(null);
 
   const loadRecords = useCallback(() => { api.get("/admin/service-records", { params: { user_id: id } }).then((r) => setRecords(r.data)); }, [id]);
   useEffect(() => {
     api.get(`/admin/employees/${id}`).then((r) => setE(r.data)).catch(() => navigate("/admin/employees"));
+    api.get(`/admin/employees/${id}/media`).then((r) => setMedia(r.data));
     loadRecords();
   }, [id, navigate, loadRecords]);
+
+  const uploadMedia = async (kind, dataUrl) => {
+    try { const { data } = await api.post(`/admin/employees/${id}/media`, { [kind]: dataUrl }); setMedia(data); toast.success(`${kind === "photo" ? "Photo" : "Signature"} updated`); } catch (err) { toast.error(errMsg(err)); }
+  };
 
   const removeRecord = async (rid) => { await api.delete(`/admin/service-records/${rid}`); loadRecords(); };
   const removeEmployee = async () => {
@@ -65,12 +74,15 @@ export default function AdminEmployeeDetail() {
     <div>
       <Link to="/admin/employees" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4" data-testid="back-to-employees"><ArrowLeft size={14} />Employees</Link>
       <PageHeader eyebrow={e.employee_id} title={e.name}
-        action={<div className="flex gap-2">
+        action={<div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-md border bg-white px-3 h-10 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal <AccessSwitch employee={e} onChange={setE} showLabel /></span>
+          <Button variant="outline" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={15} className="mr-2" />Reset password</Button>
           <Button variant="outline" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={15} className="mr-2" />Edit</Button>
           <Button variant="outline" onClick={() => setDel(true)} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50" data-testid="delete-employee-btn"><Trash2 size={15} className="mr-2" />Delete</Button>
         </div>} />
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <Panel className="lg:col-span-3" data-testid="employee-detail-info">
+          <div className="mb-6 max-w-sm"><MediaCard media={media} onUpload={uploadMedia} /></div>
           <div className="flex items-center justify-between mb-5"><h3 className="font-display text-lg font-semibold">Details</h3><Badge2 tone={e.active !== false ? "approved" : "rejected"}>{e.active !== false ? "Active" : "Inactive"}</Badge2></div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">{info.map(([l, v]) => <Info key={l} label={l} value={v} />)}</div>
         </Panel>
@@ -81,6 +93,7 @@ export default function AdminEmployeeDetail() {
         </Panel>
       </div>
       <EmployeeFormDialog open={edit} onOpenChange={setEdit} employee={e} onSaved={setE} />
+      <ResetPasswordDialog open={reset} onOpenChange={setReset} employee={e} />
       <AlertDialog open={del} onOpenChange={setDel}>
         <AlertDialogContent>
           <AlertDialogHeader>

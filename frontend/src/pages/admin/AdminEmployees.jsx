@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, Panel, Empty, Badge2 } from "@/components/common";
 import EmployeeFormDialog from "@/components/EmployeeFormDialog";
+import { AccessSwitch } from "@/components/EmployeeAccess";
 import { api, errMsg, fmtDate } from "@/lib/api";
 
 const SyncBar = ({ onDone }) => {
@@ -67,7 +68,8 @@ export default function AdminEmployees() {
                   <th className="px-3 py-3 font-semibold">Department</th>
                   <th className="px-3 py-3 font-semibold">Designation</th>
                   <th className="px-3 py-3 font-semibold">Joined</th>
-                  <th className="px-5 sm:px-6 py-3 font-semibold">Status</th>
+                  <th className="px-3 py-3 font-semibold">Status</th>
+                  <th className="px-5 sm:px-6 py-3 font-semibold">Portal Live</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -77,7 +79,8 @@ export default function AdminEmployees() {
                     <td className="px-3 py-3">{e.department || "—"}</td>
                     <td className="px-3 py-3">{e.designation || "—"}</td>
                     <td className="px-3 py-3 whitespace-nowrap">{fmtDate(e.joining_date)}</td>
-                    <td className="px-5 sm:px-6 py-3"><Badge2 tone={e.active !== false ? "approved" : "rejected"}>{e.active !== false ? "Active" : "Inactive"}</Badge2></td>
+                    <td className="px-3 py-3"><Badge2 tone={e.active !== false ? "approved" : "rejected"}>{e.active !== false ? "Active" : "Inactive"}</Badge2></td>
+                    <td className="px-5 sm:px-6 py-3"><AccessSwitch employee={e} onChange={(u) => setRows((rs) => rs.map((x) => (x.id === u.id ? u : x)))} /></td>
                   </tr>
                 ))}
               </tbody>

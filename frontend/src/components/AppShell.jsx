@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LogOut, KeyRound } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 import { useAuth } from "@/context/AuthContext";
 
 const initials = (n = "") => n.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
@@ -18,6 +21,11 @@ export default function AppShell({ nav, area }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const doLogout = () => { logout(); navigate("/login"); };
+  const [pwOpen, setPwOpen] = useState(false);
+  const isAdmin = user?.role === "admin";
+  const pwBtn = (cls, testId) => isAdmin && (
+    <button onClick={() => setPwOpen(true)} data-testid={testId} className={cls} aria-label="Change password" title="Change password"><KeyRound size={16} /></button>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,14 +45,25 @@ export default function AppShell({ nav, area }) {
             <div className="text-sm font-semibold truncate" data-testid="nav-user-name">{user?.name}</div>
             <div className="text-xs text-slate-400 truncate">{user?.employee_id || user?.email}</div>
           </div>
+          {pwBtn("p-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors", "admin-change-password-btn")}
           <button onClick={doLogout} data-testid="nav-logout-btn" className="p-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors" aria-label="Logout"><LogOut size={16} /></button>
         </div>
       </aside>
 
       <header className="md:hidden sticky top-0 z-30 bg-[hsl(var(--sidebar))] text-white px-4 py-3 flex items-center justify-between">
         <Brand area={area} />
-        <button onClick={doLogout} data-testid="mobile-logout-btn" className="p-2 rounded-md hover:bg-white/10" aria-label="Logout"><LogOut size={18} /></button>
+        <div className="flex items-center">
+          {pwBtn("p-2 rounded-md hover:bg-white/10", "mobile-admin-change-password-btn")}
+          <button onClick={doLogout} data-testid="mobile-logout-btn" className="p-2 rounded-md hover:bg-white/10" aria-label="Logout"><LogOut size={18} /></button>
+        </div>
       </header>
+
+      <Dialog open={pwOpen} onOpenChange={setPwOpen}>
+        <DialogContent className="max-w-sm" data-testid="admin-change-password-dialog">
+          <DialogHeader><DialogTitle className="font-display">Change admin password</DialogTitle></DialogHeader>
+          <ChangePasswordForm onDone={() => setPwOpen(false)} />
+        </DialogContent>
+      </Dialog>
 
       <main className="md:pl-64 pb-24 md:pb-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10"><Outlet /></div>

@@ -88,6 +88,12 @@ async def pull_employees(db, client, headers, hash_password) -> dict:
     return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
 
 
+async def _save_media(db, user_id: str, v: dict, now):
+    upd = {k: v.get(src) for k, src in (("photo", "photoUrl"), ("signature", "signatureUrl")) if (v.get(src) or "").startswith("data:image/")}
+    if upd:
+        await db.employee_media.update_one({"user_id": user_id}, {"$set": upd | {"source": "vendor", "updated_at": now}}, upsert=True)
+
+
 async def _upsert_one(db, v, hash_password, now) -> str:
     code = (v.get("empCode") or "").strip().upper()
     if not code or not v.get("id"):
@@ -98,12 +104,14 @@ async def _upsert_one(db, v, hash_password, now) -> str:
         if not existing.get("email") or existing["email"].endswith("@employee.local"):
             data["email"] = await _pick_email(db, v, code, existing["_id"])
         await db.users.update_one({"_id": existing["_id"]}, {"$set": data | {"synced_at": now}})
+        await _save_media(db, str(existing["_id"]), v, now)
         return "updated"
     data.update({
         "email": await _pick_email(db, v, code), "role": "employee", "created_at": now, "synced_at": now,
         "password_hash": hash_password(initial_password(v, code)), "must_change_password": True,
     })
     res = await db.users.insert_one(data)
+    await _save_media(db, str(res.inserted_id), v, now)
     if data["joining_date"]:
         await db.service_records.insert_one({
             "user_id": str(res.inserted_id), "date": data["joining_date"], "type": "joining",
