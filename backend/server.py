@@ -22,6 +22,9 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 
 from payslip_pdf import build_payslip_pdf
+from vendor_sync import run_sync
+import asyncio
+import hmac
 
 client = AsyncIOMotorClient(os.environ['MONGO_URL'], tz_aware=True)
 db = client[os.environ['DB_NAME']]
@@ -166,7 +169,7 @@ async def change_password(body: ChangePasswordIn, user: dict = Depends(current_u
     doc = await db.users.find_one({"_id": oid(user["id"])})
     if not verify_password(body.current_password, doc["password_hash"]):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(body.new_password)}})
+    await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(body.new_password), "must_change_password": False}})
     return {"ok": True}
 
 
@@ -534,7 +537,8 @@ async def payslip_pdf(slip_id: str, user: dict = Depends(current_user)):
         content = base64.b64decode(slip["pdf_b64"])
     else:
         emp = await db.users.find_one({"_id": oid(slip["user_id"])}) or {}
-        content = build_payslip_pdf(slip, emp, os.environ["COMPANY_NAME"])
+        company = {"name": os.environ["COMPANY_NAME"], "address": os.environ["COMPANY_ADDRESS"], "contact": os.environ["COMPANY_CONTACT"], "logo": str(ROOT_DIR / os.environ["COMPANY_LOGO"])}
+        content = build_payslip_pdf(slip, emp, company)
     return Response(content=content, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="payslip-{slip["month"]}.pdf"'})
 
 
@@ -573,6 +577,36 @@ async def my_summary(user: dict = Depends(employee_user)):
     }
 
 
+# ---------- vendor portal sync ----------
+@api.post("/admin/vendor-sync")
+async def vendor_sync_now(admin: dict = Depends(admin_user)):
+    return await run_sync(db, hash_password, datetime.now(TZ).date(), "manual")
+
+
+@api.get("/admin/vendor-sync/status")
+async def vendor_sync_status(admin: dict = Depends(admin_user)):
+    return ser(await db.sync_logs.find_one({}, sort=[("started_at", -1)]))
+
+
+@api.post("/cron/vendor-sync")
+async def cron_vendor_sync(request: Request):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or not hmac.compare_digest(auth[7:], os.environ["WEBHOOK_CRON_SECRET"]):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if body is not None and not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Invalid body")
+    run_id = request.headers.get("X-Webhook-Id") or (body or {}).get("run_id")
+    if run_id and await db.sync_logs.find_one({"run_id": run_id}):
+        return {"accepted": True, "duplicate": True}
+    asyncio.create_task(run_sync(db, hash_password, datetime.now(TZ).date(), "cron", run_id))
+    return {"accepted": True}
+
+
 app.include_router(api)
 
 app.add_middleware(
@@ -592,6 +626,8 @@ async def startup():
     await db.attendance.create_index([("user_id", 1), ("date", 1)], unique=True)
     await db.requests.create_index([("user_id", 1), ("created_at", -1)])
     await db.payslips.create_index([("user_id", 1), ("month", -1)])
+    await db.users.create_index("vendor_id", sparse=True)
+    await db.sync_logs.create_index([("started_at", -1)])
     email, pwd = os.environ["ADMIN_EMAIL"].lower(), os.environ["ADMIN_PASSWORD"]
     existing = await db.users.find_one({"email": email})
     if existing is None:

@@ -47,6 +47,7 @@ export default function EmployeeFormDialog({ open, onOpenChange, employee, onSav
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="employee-form-dialog">
         <DialogHeader><DialogTitle className="font-display text-xl">{employee ? "Edit Employee" : "Add Employee"}</DialogTitle></DialogHeader>
+        {employee?.source === "vendor" && <p className="text-sm rounded-md bg-blue-50 text-blue-800 px-3 py-2" data-testid="emp-form-vendor-note">This employee is synced from Vendor Portal HR. Profile, salary and Active/Inactive status changes made here will be overwritten on the next sync; edit them in the Vendor Portal instead. Password changes are kept.</p>}
         <form onSubmit={submit} className="space-y-6">
           {SECTIONS.map(([title, fields]) => (
             <fieldset key={title}>

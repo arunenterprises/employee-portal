@@ -4,7 +4,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 
 INK = colors.HexColor("#0F172A")
 MUTED = colors.HexColor("#64748B")
@@ -16,7 +16,7 @@ def money(v):
     return f"Rs. {float(v or 0):,.2f}"
 
 
-def build_payslip_pdf(slip: dict, emp: dict, company: str) -> bytes:
+def build_payslip_pdf(slip: dict, emp: dict, company: dict) -> bytes:
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18 * mm, rightMargin=18 * mm, topMargin=18 * mm, bottomMargin=18 * mm)
     ss = getSampleStyleSheet()
@@ -24,7 +24,13 @@ def build_payslip_pdf(slip: dict, emp: dict, company: str) -> bytes:
     sub = ParagraphStyle("s", parent=ss["Normal"], fontSize=10, textColor=MUTED)
     month_label = datetime.strptime(slip["month"], "%Y-%m").strftime("%B %Y")
 
-    els = [Paragraph(company, title), Paragraph(f"PAYSLIP &nbsp;&middot;&nbsp; {month_label}", sub), Spacer(1, 8 * mm)]
+    small = ParagraphStyle("sm", parent=sub, fontSize=8.5, leading=11)
+    head_text = [Paragraph(company["name"], title), Paragraph(company["address"], small), Paragraph(company["contact"], small)]
+    head = Table([[Image(company["logo"], width=26 * mm, height=18.4 * mm), head_text]], colWidths=[30 * mm, 144 * mm])
+    head.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                              ("LINEBELOW", (0, 0), (-1, -1), 1.2, BRAND), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
+    pay_title = ParagraphStyle("pt", parent=ss["Normal"], fontSize=12, fontName="Helvetica-Bold", textColor=INK, alignment=1)
+    els = [head, Spacer(1, 6 * mm), Paragraph(f"PAYSLIP FOR THE MONTH OF {month_label.upper()}", pay_title), Spacer(1, 6 * mm)]
 
     g = emp.get
     info = [

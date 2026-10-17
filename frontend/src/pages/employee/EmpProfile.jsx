@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { api, errMsg, fmtDate, fmtINR } from "@/lib/api";
 
 const ChangePassword = () => {
+  const { user, setUser } = useAuth();
   const [f, setF] = useState({ current_password: "", new_password: "" });
   const [busy, setBusy] = useState(false);
   const submit = async (e) => {
@@ -16,6 +17,7 @@ const ChangePassword = () => {
     try {
       await api.post("/auth/change-password", f);
       toast.success("Password changed");
+      setUser({ ...user, must_change_password: false });
       setF({ current_password: "", new_password: "" });
     } catch (err) {
       toast.error(errMsg(err));

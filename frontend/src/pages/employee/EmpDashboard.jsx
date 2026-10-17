@@ -68,6 +68,12 @@ export default function EmpDashboard() {
         <p className="text-muted-foreground mt-1">{[user?.designation, user?.department].filter(Boolean).join(" · ") || user?.employee_id}</p>
       </div>
 
+      {user?.must_change_password && (
+        <Link to="/employee/profile" className="block rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-200 px-4 py-3 text-sm font-medium hover:bg-amber-100 transition-colors" data-testid="change-password-banner">
+          You are using the initial password. Please change it from your Profile page.
+        </Link>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2"><PunchCard today={today} onPunch={setMode} /></div>
         <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">

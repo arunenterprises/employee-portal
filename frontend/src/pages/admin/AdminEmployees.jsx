@@ -1,11 +1,40 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Users } from "lucide-react";
+import { Plus, Search, Users, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, Panel, Empty, Badge2 } from "@/components/common";
 import EmployeeFormDialog from "@/components/EmployeeFormDialog";
-import { api, fmtDate } from "@/lib/api";
+import { api, errMsg, fmtDate } from "@/lib/api";
+
+const SyncBar = ({ onDone }) => {
+  const [last, setLast] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api.get("/admin/vendor-sync/status").then((r) => setLast(r.data)); }, []);
+  const sync = async () => {
+    setBusy(true);
+    try {
+      const { data } = await api.post("/admin/vendor-sync");
+      if (data.status === "success") toast.success(`Synced: ${data.result.created} new, ${data.result.updated} updated, ${data.result.attendance_months_pushed} attendance month(s) sent`);
+      else toast.error(data.error || data.detail || "Sync failed");
+      api.get("/admin/vendor-sync/status").then((r) => setLast(r.data));
+      onDone();
+    } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Panel className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3" data-testid="vendor-sync-bar">
+      <div>
+        <div className="font-semibold">Vendor Portal HR link</div>
+        <div className="text-sm text-muted-foreground" data-testid="vendor-sync-status">
+          Employees come from Vendor Portal (Employee Code = primary key); attendance is sent back. Auto-sync every hour.
+          {last && <> Last sync: {new Date(last.started_at).toLocaleString("en-IN")} · <span className={last.status === "success" ? "text-emerald-600" : "text-rose-600"}>{last.status}</span></>}
+        </div>
+      </div>
+      <Button variant="outline" onClick={sync} disabled={busy} data-testid="vendor-sync-btn"><RefreshCw size={15} className={`mr-2 ${busy ? "animate-spin" : ""}`} />{busy ? "Syncing…" : "Sync now"}</Button>
+    </Panel>
+  );
+};
 
 export default function AdminEmployees() {
   const [rows, setRows] = useState([]);
@@ -23,6 +52,7 @@ export default function AdminEmployees() {
     <div>
       <PageHeader eyebrow="People" title="Employees" desc="Create employee accounts and manage their records."
         action={<Button onClick={() => setOpen(true)} data-testid="add-employee-btn"><Plus size={16} className="mr-2" />Add employee</Button>} />
+      <SyncBar onDone={load} />
       <Panel>
         <div className="relative mb-5 max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -43,7 +73,7 @@ export default function AdminEmployees() {
               <tbody className="divide-y">
                 {shown.map((e) => (
                   <tr key={e.id} onClick={() => navigate(`/admin/employees/${e.id}`)} className="cursor-pointer hover:bg-slate-50 transition-colors" data-testid={`employee-row-${e.employee_id}`}>
-                    <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{e.name}</div><div className="text-xs text-muted-foreground font-mono">{e.employee_id} · {e.email}</div></td>
+                    <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{e.name}</div><div className="text-xs text-muted-foreground font-mono">{e.employee_id}{e.source === "vendor" && <span className="ml-2 text-primary">· Vendor HR</span>}</div></td>
                     <td className="px-3 py-3">{e.department || "—"}</td>
                     <td className="px-3 py-3">{e.designation || "—"}</td>
                     <td className="px-3 py-3 whitespace-nowrap">{fmtDate(e.joining_date)}</td>

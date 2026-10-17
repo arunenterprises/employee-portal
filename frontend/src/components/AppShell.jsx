@@ -1,12 +1,12 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { LogOut, Fingerprint } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const initials = (n = "") => n.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
 const Brand = ({ area }) => (
   <div className="flex items-center gap-3">
-    <div className="h-9 w-9 rounded-lg bg-primary grid place-items-center text-white"><Fingerprint size={20} /></div>
+    <img src="/arun-logo.jpg" alt="Arun Enterprises logo" className="h-10 w-10 rounded-lg object-contain p-0.5 bg-white shrink-0" data-testid="shell-logo" />
     <div className="leading-tight">
       <div className="font-display font-bold text-lg tracking-tight">ARUN ENTERPRISES</div>
       <div className="text-[10px] uppercase tracking-[0.2em] opacity-60">{area}</div>
