@@ -1,6 +1,7 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { LayoutDashboard, UserRound, CalendarClock, FileText, Wallet, Users, Inbox, BookOpen } from "lucide-react";
+import { LayoutDashboard, UserRound, CalendarClock, FileText, Wallet, Users, Inbox, BookOpen, ShieldCheck } from "lucide-react";
+import AdminLoginActivity from "@/pages/admin/AdminLoginActivity";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import AppShell from "@/components/AppShell";
@@ -33,6 +34,7 @@ const ADMIN_NAV = [
   { key: "attendance", to: "/admin/attendance", label: "Attendance", icon: CalendarClock },
   { key: "requests", to: "/admin/requests", label: "Requests", icon: Inbox },
   { key: "payslips", to: "/admin/payslips", label: "Payslips", icon: Wallet },
+  { key: "logins", to: "/admin/login-activity", label: "Logins", icon: ShieldCheck },
 ];
 
 const Loader = () => (
@@ -77,6 +79,7 @@ function App() {
               <Route path="requests" element={<AdminRequests />} />
               <Route path="payslips" element={<AdminPayslips />} />
               <Route path="service-book" element={<AdminServiceBook />} />
+              <Route path="login-activity" element={<AdminLoginActivity />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -82,8 +82,25 @@ def verify_password(p: str, h: str) -> bool:
     return bcrypt.checkpw(p.encode(), h.encode())
 
 
-def make_token(user_id: str, role: str) -> str:
+ONLINE_MINUTES = 15
+
+
+def client_ip(request: Request) -> str:
+    h = request.headers
+    ip = h.get("cf-connecting-ip") or (h.get("x-forwarded-for") or "").split(",")[0].strip() or h.get("x-real-ip")
+    return ip or (request.client.host if request.client else "")
+
+
+async def log_auth(kind: str, request: Request, user: Optional[dict] = None, identifier: str = "", sid: str = None, detail: str = ""):
+    await db.login_logs.insert_one({
+        "type": kind, "user_id": str(user["_id"]) if user else None, "role": (user or {}).get("role"), "identifier": identifier,
+        "ip": client_ip(request), "user_agent": request.headers.get("user-agent", "")[:300], "sid": sid, "detail": detail, "at": now_utc()})
+
+
+def make_token(user_id: str, role: str, sid: str = None) -> str:
     payload = {"sub": user_id, "role": role, "type": "access", "exp": now_utc() + timedelta(hours=12)}
+    if sid:
+        payload["sid"] = sid
     return jwt.encode(payload, os.environ["JWT_SECRET"], algorithm=JWT_ALG)
 
 
@@ -101,7 +118,16 @@ async def current_user(request: Request) -> dict:
     user = await db.users.find_one({"_id": oid(payload["sub"])})
     if not user or not user.get("active", True) or user.get("portal_enabled") is False:
         raise HTTPException(status_code=401, detail="User not found")
-    return ser(user)
+    sid = payload.get("sid")
+    if sid:
+        sess = await db.login_sessions.find_one({"sid": sid}, {"logout_at": 1, "last_seen": 1})
+        if not sess or sess.get("logout_at"):
+            raise HTTPException(status_code=401, detail="Session ended. Please log in again.")
+        if sess["last_seen"].replace(tzinfo=timezone.utc) < now_utc() - timedelta(seconds=60):
+            await db.login_sessions.update_one({"sid": sid}, {"$set": {"last_seen": now_utc(), "ip": client_ip(request)}})
+    out = ser(user)
+    out["sid"] = sid
+    return out
 
 
 async def admin_user(user: dict = Depends(current_user)) -> dict:
@@ -146,10 +172,12 @@ async def login(body: LoginIn, request: Request):
     key = ident.lower()
     att = await db.login_attempts.find_one({"identifier": key})
     locked = att and att.get("count", 0) >= 5 and att["last"] > now_utc() - timedelta(minutes=15)
-    if locked:
-        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again in 15 minutes.")
     user = await db.users.find_one({"$or": [{"email": ident.lower()}, {"employee_id": ident.upper()}]})
+    if locked:
+        await log_auth("failed", request, user, ident, detail="Locked: too many failed attempts")
+        raise HTTPException(status_code=429, detail="Too many failed attempts. Try again in 15 minutes.")
     if not user or not verify_password(body.password, user["password_hash"]):
+        await log_auth("failed", request, user, ident, detail="Wrong password" if user else "Unknown user")
         expired = att and att["last"] <= now_utc() - timedelta(minutes=15)
         if expired:
             await db.login_attempts.update_one({"identifier": key}, {"$set": {"count": 1, "last": now_utc()}})
@@ -157,11 +185,64 @@ async def login(body: LoginIn, request: Request):
             await db.login_attempts.update_one({"identifier": key}, {"$inc": {"count": 1}, "$set": {"last": now_utc()}}, upsert=True)
         raise HTTPException(status_code=401, detail="Invalid email/employee ID or password")
     if not user.get("active", True):
+        await log_auth("failed", request, user, ident, detail="Account inactive")
         raise HTTPException(status_code=403, detail="Your account is inactive. Contact HR.")
     if user.get("portal_enabled") is False:
+        await log_auth("failed", request, user, ident, detail="Portal access disabled")
         raise HTTPException(status_code=403, detail="Your portal access is disabled. Contact HR.")
     await db.login_attempts.delete_one({"identifier": key})
-    return {"token": make_token(str(user["_id"]), user["role"]), "user": ser(user)}
+    sid = secrets.token_urlsafe(16)
+    now = now_utc()
+    await db.login_sessions.insert_one({"sid": sid, "user_id": str(user["_id"]), "role": user["role"], "ip": client_ip(request), "login_ip": client_ip(request),
+                                        "user_agent": request.headers.get("user-agent", "")[:300], "login_at": now, "last_seen": now, "logout_at": None})
+    await log_auth("login", request, user, ident, sid)
+    return {"token": make_token(str(user["_id"]), user["role"], sid), "user": ser(user)}
+
+
+@api.post("/auth/logout")
+async def logout(request: Request, user: dict = Depends(current_user)):
+    if user.get("sid"):
+        await db.login_sessions.update_one({"sid": user["sid"]}, {"$set": {"logout_at": now_utc()}})
+    await log_auth("logout", request, {"_id": user["id"], "role": user["role"]}, user.get("employee_id") or user.get("email", ""), user.get("sid"))
+    return {"ok": True}
+
+
+def _session_out(s: dict, emps: dict) -> dict:
+    cutoff = now_utc() - timedelta(minutes=ONLINE_MINUTES)
+    last = s["last_seen"].replace(tzinfo=timezone.utc)
+    login_at = s["login_at"].replace(tzinfo=timezone.utc)
+    expired = login_at < now_utc() - timedelta(hours=12)
+    status = "logged_out" if s.get("logout_at") else "expired" if expired else "online" if last >= cutoff else "idle"
+    return {"sid": s["sid"], "user_id": s["user_id"], "role": s.get("role"), "employee": emps.get(s["user_id"]), "ip": s.get("ip"), "login_ip": s.get("login_ip"),
+            "user_agent": s.get("user_agent"), "login_at": login_at.isoformat(), "last_seen": last.isoformat(),
+            "logout_at": s["logout_at"].replace(tzinfo=timezone.utc).isoformat() if s.get("logout_at") else None, "status": status}
+
+
+@api.get("/admin/login-activity/sessions")
+async def login_sessions(admin: dict = Depends(admin_user)):
+    docs = await db.login_sessions.find({"role": "employee", "logout_at": None, "login_at": {"$gte": now_utc() - timedelta(hours=12)}}).sort("last_seen", -1).to_list(1000)
+    emps = await employee_map([d["user_id"] for d in docs])
+    out = [_session_out(d, emps) for d in docs]
+    return {"online_minutes": ONLINE_MINUTES, "sessions": out}
+
+
+@api.get("/admin/login-activity/logs")
+async def login_logs(date: Optional[str] = None, user_id: Optional[str] = None, type: Optional[str] = None, admin: dict = Depends(admin_user)):
+    q = {"role": {"$ne": "admin"}}
+    if user_id:
+        q["user_id"] = user_id
+    if type in ("login", "logout", "failed"):
+        q["type"] = type
+    if date:
+        try:
+            d = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=TZ)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Date must be YYYY-MM-DD")
+        q["at"] = {"$gte": d.astimezone(timezone.utc), "$lt": (d + timedelta(days=1)).astimezone(timezone.utc)}
+    docs = await db.login_logs.find(q).sort("at", -1).to_list(500)
+    emps = await employee_map([d["user_id"] for d in docs if d.get("user_id")])
+    return [{"id": str(d["_id"]), "type": d["type"], "user_id": d.get("user_id"), "employee": emps.get(d.get("user_id")), "identifier": d.get("identifier"),
+             "ip": d.get("ip"), "user_agent": d.get("user_agent"), "detail": d.get("detail"), "at": d["at"].replace(tzinfo=timezone.utc).isoformat()} for d in docs]
 
 
 @api.get("/auth/me")
