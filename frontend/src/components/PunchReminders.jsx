@@ -18,7 +18,10 @@ export const PunchReminders = () => {
   useEffect(() => {
     if (!supported()) { setState("unsupported"); return; }
     if (Notification.permission === "denied") { setState("denied"); return; }
-    navigator.serviceWorker.ready.then((r) => r.pushManager.getSubscription()).then((s) => setState(s ? "on" : "off")).catch(() => setState("off"));
+    navigator.serviceWorker.ready.then((r) => r.pushManager.getSubscription()).then(async (s) => {
+      if (s) { await api.post("/push/subscribe", s.toJSON()).catch(() => {}); }
+      setState(s ? "on" : "off");
+    }).catch(() => setState("off"));
   }, []);
 
   const enable = async () => {

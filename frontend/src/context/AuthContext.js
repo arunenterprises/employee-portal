@@ -30,6 +30,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    try {
+      const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      const sub = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
+      if (sub && user?.role === "employee") { await api.post("/push/unsubscribe", sub.toJSON()); }
+    } catch (e) { /* ignore */ }
     await api.post("/auth/logout").catch(() => {});
     localStorage.removeItem(TOKEN_KEY);
     setUser(false);

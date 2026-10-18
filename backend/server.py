@@ -17,6 +17,7 @@ import bcrypt
 import jwt
 from bson import ObjectId
 from bson.errors import InvalidId
+from pymongo.errors import DuplicateKeyError
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, UploadFile, File, Form
 from fastapi.responses import Response
 from starlette.middleware.cors import CORSMiddleware
@@ -1378,7 +1379,6 @@ REMINDER_TEXT = {
 
 async def run_punch_reminder(kind: str, run_id: Optional[str]):
     today = today_str()
-    await db.reminder_logs.insert_one({"run_id": run_id, "kind": kind, "date": today, "started_at": now_utc(), "sent": 0})
     uids = await db.push_subscriptions.distinct("user_id")
     emps = await db.users.find({"_id": {"$in": [oid(u) for u in uids]}, "role": "employee", "active": {"$ne": False}, "portal_enabled": {"$ne": False}}, {"name": 1}).to_list(5000)
     att = {a["user_id"]: a for a in await db.attendance.find({"date": today}, {"user_id": 1, "punch_out": 1}).to_list(5000)}
@@ -1409,8 +1409,10 @@ async def cron_punch_reminder(kind: str, request: Request):
         body = {}
     if body is not None and not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="Invalid body")
-    run_id = request.headers.get("X-Webhook-Id") or (body or {}).get("run_id")
-    if run_id and await db.reminder_logs.find_one({"run_id": run_id}):
+    run_id = request.headers.get("X-Webhook-Id") or (body or {}).get("run_id") or secrets.token_hex(8)
+    try:
+        await db.reminder_logs.insert_one({"run_id": run_id, "kind": kind, "date": today_str(), "started_at": now_utc(), "sent": 0})
+    except DuplicateKeyError:
         return {"accepted": True, "duplicate": True}
     task = asyncio.create_task(run_punch_reminder(kind, run_id))
     _bg_tasks.add(task)
@@ -1433,6 +1435,8 @@ app.add_middleware(
 async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("employee_id", unique=True, sparse=True)
+    await db.reminder_logs.create_index("run_id", unique=True)
+    await db.push_subscriptions.create_index("endpoint", unique=True)
     await db.users.create_index("short_code", unique=True, partialFilterExpression={"short_code": {"$type": "string"}})
     await db.login_attempts.create_index("identifier")
     await db.attendance.create_index([("user_id", 1), ("date", 1)], unique=True)

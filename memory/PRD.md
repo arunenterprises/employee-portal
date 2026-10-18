@@ -93,6 +93,13 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - PWA: manifest.json, icon-192/512 from logo, sw.js, title "ARUN ENTERPRISES | Employee Portal" -> installable on Android (Add to Home screen / Install app).
 - Testing agent iteration_9: backend 26/26, frontend 100%.
 
+## Implemented (2026-10-18, iteration 18)
+- Credential slip redesign: dark box with big Login ID (short code) + password, QR code (qrcode.react) to <origin>/login, install steps.
+- Punch reminders via Web Push (pywebpush, VAPID keys in backend/.env): employee dashboard "Punch reminders" panel (Turn on / Test / Turn off), sw.js push + notificationclick, /api/push/* endpoints, db.push_subscriptions (unique endpoint, re-linked to current user on mount, unlinked on logout).
+- Crons (.emergent/crons.yml): punch-in-reminder 9:10 and punch-out-reminder 18:10 Asia/Kolkata Mon-Sat -> /api/cron/punch-reminder-in|out (Bearer WEBHOOK_CRON_SECRET, idempotent run_id unique index). Sends only to employees not yet punched in / punched in but not out, skipping approved leave.
+- Admin password changed to Arun2023@12 (preview DB hash + .env ADMIN_PASSWORD). The seed doesn't override when password_set_in_app is true, so on production change it from the app (key icon).
+- Testing agent iteration_10: backend 18/18, frontend 100% of testable flows (real push delivery can't be tested headless). Fixed after the test: shared-device subscription and race-free cron dedupe.
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)
