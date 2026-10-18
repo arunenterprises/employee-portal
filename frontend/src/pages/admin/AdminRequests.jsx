@@ -4,8 +4,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PageHeader, Empty, NativeSelect } from "@/components/common";
+import { PageHeader, Empty, NativeSelect, Panel } from "@/components/common";
 import RequestItem from "@/components/RequestItem";
+import LeaveBalanceManager from "@/components/LeaveBalanceManager";
 import { api, errMsg } from "@/lib/api";
 
 const STATUSES = ["pending", "approved", "rejected", "all"];
@@ -16,6 +17,7 @@ export default function AdminRequests() {
   const [type, setType] = useState("");
   const [decision, setDecision] = useState(null);
   const [comment, setComment] = useState("");
+  const [tab, setTab] = useState("requests");
 
   const load = useCallback(() => {
     api.get("/admin/requests", { params: { status: status === "all" ? undefined : status, type: type || undefined } }).then((r) => setRows(r.data));
@@ -34,7 +36,14 @@ export default function AdminRequests() {
 
   return (
     <div>
-      <PageHeader eyebrow="Approvals" title="Requests" desc="Review leave, advance, payslip and other employee requests." />
+      <PageHeader eyebrow="Approvals" title="Requests" desc="Review leave, advance, payslip and other employee requests, and manage leave balances." />
+      <div className="flex gap-1 rounded-xl border bg-white p-1 mb-5 w-fit" data-testid="requests-tabs">
+        {[["requests", "Requests"], ["balance", "Leave Balance"]].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} data-testid={`req-tab-${k}`} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${tab === k ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{l}</button>
+        ))}
+      </div>
+      {tab === "balance" && <Panel><LeaveBalanceManager /></Panel>}
+      {tab === "requests" && <>
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between mb-5">
         <div className="flex gap-2 overflow-x-auto">
           {STATUSES.map((s) => (
@@ -58,6 +67,7 @@ export default function AdminRequests() {
           </RequestItem>
         )) : <Empty icon={Inbox} text="No requests found." testId="admin-requests-empty" />}
       </div>
+      </>}
       <Dialog open={!!decision} onOpenChange={(o) => !o && setDecision(null)}>
         <DialogContent className="max-w-md" data-testid="decision-dialog">
           <DialogHeader><DialogTitle className="font-display capitalize">{decision?.status === "approved" ? "Approve" : "Reject"} request</DialogTitle></DialogHeader>

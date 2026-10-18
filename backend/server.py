@@ -26,6 +26,8 @@ from pydantic import BaseModel, Field
 from payslip_pdf import build_payslip_pdf
 from vendor_sync import run_sync, push_now, push_day
 import calendar
+import csv
+import io
 import asyncio
 import hmac
 
@@ -708,7 +710,18 @@ async def admin_requests(status: Optional[str] = None, type: Optional[str] = Non
     if type:
         q["type"] = type
     docs = await db.requests.find(q).sort("created_at", -1).to_list(2000)
-    return await attach_employee([ser(d) for d in docs])
+    items = await attach_employee([ser(d) for d in docs])
+    cache = {}
+    for r in items:
+        if r["type"] != "leave" or not r.get("start_date"):
+            continue
+        key = (r["user_id"], r["start_date"][:4])
+        if key not in cache:
+            cache[key] = await compute_balance(*key)
+        b = cache[key]
+        row = next((x for x in b["balances"] if x["leave_type"] == bal_type(r.get("leave_type"))), None) if b["configured"] else None
+        r["balance"] = row and {k: row[k] for k in ("leave_type", "allotted", "used", "pending", "available")}
+    return items
 
 
 @api.patch("/admin/requests/{req_id}")
@@ -892,7 +905,91 @@ def this_year() -> str:
 
 @api.get("/leave-balance")
 async def my_leave_balance(year: Optional[str] = None, user: dict = Depends(employee_user)):
-    return await compute_balance(user["id"], year or this_year())
+    if user.get("leave_balance_live") is False:
+        return {"year": year or this_year(), "live": False, "configured": False, "balances": [], "adjustments": []}
+    return await compute_balance(user["id"], year or this_year()) | {"live": True}
+
+
+SHORT_LEAVES = {"CL": "Casual Leave", "SL": "Sick Leave", "EL": "Earned Leave"}
+
+
+class LeaveLiveIn(BaseModel):
+    live: bool
+    user_ids: Optional[List[str]] = None
+
+
+@api.get("/admin/leave-balances")
+async def all_leave_balances(year: Optional[str] = None, admin: dict = Depends(admin_user)):
+    year = year or this_year()
+    emps = await db.users.find({"role": "employee"}, {"name": 1, "employee_id": 1, "department": 1, "leave_balance_live": 1, "active": 1}).sort("employee_id", 1).to_list(5000)
+    out = []
+    for e in emps:
+        b = await compute_balance(str(e["_id"]), year)
+        out.append({"user_id": str(e["_id"]), "name": e.get("name"), "employee_id": e.get("employee_id"), "department": e.get("department"), "active": e.get("active", True),
+                    "live": e.get("leave_balance_live") is not False, "configured": b["configured"], "balances": b["balances"]})
+    return {"year": year, "rows": out}
+
+
+@api.put("/admin/leave-balances/live")
+async def set_leave_live(body: LeaveLiveIn, admin: dict = Depends(admin_user)):
+    q = {"role": "employee"}
+    if body.user_ids:
+        q["_id"] = {"$in": [oid(u) for u in body.user_ids]}
+    res = await db.users.update_many(q, {"$set": {"leave_balance_live": body.live}})
+    return {"live": body.live, "updated": res.matched_count}
+
+
+@api.post("/admin/leave-balances/upload")
+async def upload_leave_balances(year: str = Form(...), file: UploadFile = File(...), admin: dict = Depends(admin_user)):
+    if not re.fullmatch(r"\d{4}", year):
+        raise HTTPException(status_code=400, detail="Year must be YYYY")
+    raw = await file.read()
+    if len(raw) > 2_000_000:
+        raise HTTPException(status_code=400, detail="File too large (max 2 MB)")
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    reader = csv.DictReader(io.StringIO(text))
+    norm = lambda s: re.sub(r"[^a-z]", "", (s or "").lower())
+    cols = {norm(c): c for c in (reader.fieldnames or [])}
+    code_col = cols.get("employeecode") or cols.get("employeeid") or cols.get("empcode") or cols.get("code")
+    lt_cols = {lt: cols.get(norm(short)) or cols.get(norm(lt)) for short, lt in SHORT_LEAVES.items()}
+    live_col = cols.get("live") or cols.get("showtoemployee")
+    if not code_col or not any(lt_cols.values()):
+        raise HTTPException(status_code=400, detail="CSV needs an 'Employee Code' column and at least one of CL, SL, EL")
+    updated, errors = 0, []
+    for i, row in enumerate(reader, start=2):
+        code = (row.get(code_col) or "").strip().upper()
+        if not code:
+            continue
+        emp = await db.users.find_one({"employee_id": code, "role": "employee"}, {"_id": 1})
+        if not emp:
+            errors.append(f"Row {i}: employee code {code} not found")
+            continue
+        uid = str(emp["_id"])
+        doc = await db.leave_balances.find_one({"user_id": uid, "year": year}) or {}
+        quotas = dict(doc.get("quotas") or {})
+        bad = False
+        for lt, col in lt_cols.items():
+            if not col or str(row.get(col) or "").strip() == "":
+                continue
+            try:
+                v = float(str(row[col]).strip())
+            except ValueError:
+                v = -1
+            if v < 0 or v > 365:
+                errors.append(f"Row {i}: invalid {lt} value '{row[col]}'")
+                bad = True
+                break
+            quotas[lt] = v
+        if bad:
+            continue
+        await db.leave_balances.update_one({"user_id": uid, "year": year}, {"$set": {"quotas": quotas, "updated_at": now_utc()}}, upsert=True)
+        if live_col and str(row.get(live_col) or "").strip():
+            await db.users.update_one({"_id": emp["_id"]}, {"$set": {"leave_balance_live": str(row[live_col]).strip().lower() in ("yes", "y", "live", "1", "true", "on")}})
+        updated += 1
+    return {"updated": updated, "errors": errors[:50]}
 
 
 @api.get("/admin/leave-balance/{emp_id}")

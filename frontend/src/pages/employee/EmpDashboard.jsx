@@ -141,10 +141,10 @@ export default function EmpDashboard() {
         </Panel>
       </div>
 
-      <Panel className="rise" data-testid="dashboard-leave-balance">
+      {bal?.live !== false && <Panel className="rise" data-testid="dashboard-leave-balance">
         <h3 className="font-display text-lg font-semibold mb-4">Leave balance ({new Date().getFullYear()})</h3>
         <BalanceCards data={bal} />
-      </Panel>
+      </Panel>}
 
       <Panel className="rise">
         <div className="flex items-center justify-between mb-4">

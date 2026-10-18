@@ -29,6 +29,14 @@ export default function RequestItem({ r, children, showEmployee }) {
           <div className="text-sm text-muted-foreground mt-0.5">{sub}</div>
           {showEmployee && <div className="text-sm mt-2"><span className="font-semibold">{r.employee?.name}</span> <span className="text-muted-foreground">· {r.employee?.employee_id}{r.employee?.department ? ` · ${r.employee.department}` : ""}</span></div>}
           {r.reason && <p className="text-sm mt-2 text-slate-700">{r.reason}</p>}
+          {showEmployee && r.type === "leave" && r.balance && (
+            <div className={`inline-flex flex-wrap gap-x-3 text-xs mt-2 rounded-md px-3 py-1.5 ${r.status === "pending" && r.balance.available - r.balance.pending < 0 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-800"}`} data-testid={`request-balance-${r.id}`}>
+              <span className="font-semibold">{r.balance.leave_type} balance</span>
+              <span>Available {r.balance.available} of {r.balance.allotted}</span>
+              <span>Used {r.balance.used}</span>
+              {r.balance.pending > 0 && <span>Pending {r.balance.pending}</span>}
+            </div>
+          )}
           {r.admin_comment && <p className="text-sm mt-2 rounded-md bg-slate-50 px-3 py-2"><span className="font-semibold">HR: </span>{r.admin_comment}</p>}
           <div className="text-xs text-muted-foreground mt-2">Submitted {fmtDate(r.created_at)}</div>
         </div>
