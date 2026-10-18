@@ -43,7 +43,7 @@ export default function AppShell({ nav, area }) {
           <div className="h-9 w-9 rounded-full bg-slate-700 grid place-items-center text-xs font-bold">{initials(user?.name)}</div>
           <div className="min-w-0 flex-1">
             <div className="text-sm font-semibold truncate" data-testid="nav-user-name">{user?.name}</div>
-            <div className="text-xs text-slate-400 truncate">{user?.employee_id || user?.email}</div>
+            <div className="text-xs text-slate-400 truncate">{user?.short_code ? `${user.short_code} · ` : ""}{user?.employee_id || user?.email}</div>
           </div>
           {pwBtn("p-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors", "admin-change-password-btn")}
           <button onClick={doLogout} data-testid="nav-logout-btn" className="p-2 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors" aria-label="Logout"><LogOut size={16} /></button>

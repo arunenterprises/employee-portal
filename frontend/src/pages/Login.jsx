@@ -84,8 +84,8 @@ export default function Login() {
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Sign in to your portal</h2>
             <p className="text-sm text-muted-foreground mt-2">Use your Employee Code / Email provided by HR.</p>
           </div>
-          <Field label="Employee Code / Email">
-            <Input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="EMP001 or you@company.com" className="h-11" data-testid="login-email-input" />
+          <Field label="Employee Code / Short Code / Email">
+            <Input required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="AE0005, full employee code or email" className="h-11" data-testid="login-email-input" />
           </Field>
           <Field label="Password">
             <Input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11" data-testid="login-password-input" />

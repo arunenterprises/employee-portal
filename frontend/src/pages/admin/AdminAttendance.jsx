@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { PageHeader, Panel, NativeSelect } from "@/components/common";
+import { PageHeader, Panel, NativeSelect, empLabel } from "@/components/common";
 import AttendanceTable from "@/components/AttendanceTable";
 import AttendanceSheet from "@/components/AttendanceSheet";
 import { SheetVisibilityToggle } from "@/components/SheetVisibilityToggle";
@@ -34,7 +34,7 @@ export default function AdminAttendance() {
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="sm:w-48" data-testid="admin-att-date" />
           <NativeSelect value={userId} onChange={(e) => setUserId(e.target.value)} className="sm:w-64" data-testid="admin-att-employee">
             <option value="">All employees</option>
-            {employees.map((e) => <option key={e.id} value={e.id}>{e.employee_id} · {e.name}</option>)}
+            {employees.map((e) => <option key={e.id} value={e.id}>{empLabel(e)}</option>)}
           </NativeSelect>
           {date && <button onClick={() => setDate("")} className="text-sm font-semibold text-primary hover:underline" data-testid="admin-att-all-dates">Show all dates</button>}
         </div>

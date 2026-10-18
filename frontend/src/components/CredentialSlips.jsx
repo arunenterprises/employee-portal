@@ -21,6 +21,7 @@ const Slip = ({ s, issued }) => (
     <div className="mt-3 grid grid-cols-[110px_1fr] gap-y-1.5 text-sm">
       <span className="text-slate-500">Portal</span><span className="font-mono text-xs break-all">{window.location.origin}/login</span>
       <span className="text-slate-500">Employee Code</span><span className="font-mono font-semibold">{s.employee_id}</span>
+      {s.short_code && <><span className="text-slate-500">Short Code</span><span className="font-mono font-bold text-lg tracking-wider" data-testid={`slip-short-${s.employee_id}`}>{s.short_code}</span></>}
       <span className="text-slate-500">Password</span><span className="font-mono font-bold text-lg tracking-wider" data-testid={`slip-password-${s.employee_id}`}>{s.password}</span>
     </div>
     <p className="mt-3 text-[11px] text-slate-500 leading-snug">Change this password after first login (Profile → Change password). Do not share it with anyone. Issued {fmtDate(issued)}.</p>
@@ -81,7 +82,7 @@ export default function CredentialSlipsDialog({ open, onOpenChange, employees, o
           {employees.map((e) => (
             <label key={e.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-slate-50 text-sm cursor-pointer">
               <Checkbox checked={sel.has(e.id)} onCheckedChange={() => toggle(e.id)} data-testid={`slips-check-${e.employee_id}`} />
-              <span className="flex-1 min-w-0"><span className="font-medium">{e.name}</span> <span className="text-xs text-muted-foreground font-mono">{e.employee_id}</span></span>
+              <span className="flex-1 min-w-0"><span className="font-medium">{e.name}</span> <span className="text-xs text-muted-foreground font-mono">{e.employee_id}</span> {e.short_code && <span className="text-[10px] font-mono font-bold text-blue-700">{e.short_code}</span>}</span>
               {!e.must_change_password && <span className="text-[10px] text-slate-500">changed pwd</span>}
             </label>
           ))}

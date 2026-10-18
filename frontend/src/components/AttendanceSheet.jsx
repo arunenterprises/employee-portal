@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Empty } from "@/components/common";
+import { Empty, ShortBadge } from "@/components/common";
 import { api, errMsg, fmtTime, localDate } from "@/lib/api";
 
 const CODES = {
@@ -18,13 +18,13 @@ const tip = (c) => [CODES[c.code]?.[0] || c.code, c.in && `In ${fmtTime(c.in)}`,
 const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 
 const exportCsv = (data, month, days) => {
-  const head = ["Employee Code", "Name", ...days.map((d) => `${month}-${d}`), ...TOTAL_KEYS, "HL", "W", "Late Days", "Paid Days (P+L+HL+W+H/2)"];
+  const head = ["Employee Code", "Short Code", "Name", ...days.map((d) => `${month}-${d}`), ...TOTAL_KEYS, "HL", "W", "Late Days", "Paid Days (P+L+HL+W+H/2)"];
   const lines = data.rows.map((r) => {
     const t = r.totals;
     const cnt = (k) => Object.values(r.cells).filter((c) => c?.code === k).length;
     const hl = cnt("HL"), w = cnt("W");
     const paid = (t.P || 0) + (t.L || 0) + hl + w + (t.H || 0) / 2;
-    return [r.employee_id, r.name, ...days.map((d) => { const c = r.cells[d]; return c ? `${c.code}${c.late > 0 ? " (Late)" : ""}` : ""; }), ...TOTAL_KEYS.map((k) => t[k] || 0), hl, w, t.late || 0, paid];
+    return [r.employee_id, r.short_code || "", r.name, ...days.map((d) => { const c = r.cells[d]; return c ? `${c.code}${c.late > 0 ? " (Late)" : ""}` : ""; }), ...TOTAL_KEYS.map((k) => t[k] || 0), hl, w, t.late || 0, paid];
   });
   const csv = "\ufeff" + [head, ...lines].map((row) => row.map(esc).join(",")).join("\r\n");
   const a = document.createElement("a");
@@ -133,7 +133,7 @@ export default function AttendanceSheet() {
             <tbody>
               {data.rows.map((r) => (
                 <tr key={r.user_id} data-testid={`sheet-row-${r.employee_id}`}>
-                  <td className="sticky left-0 z-10 bg-white border px-3 py-1.5"><div className="font-semibold leading-tight">{r.name}</div><div className="text-[10px] font-mono text-muted-foreground">{r.employee_id}</div></td>
+                  <td className="sticky left-0 z-10 bg-white border px-3 py-1.5"><div className="font-semibold leading-tight">{r.name}</div><div className="text-[10px] font-mono text-muted-foreground">{r.employee_id} <ShortBadge code={r.short_code} /></div></td>
                   {days.map((d) => <Cell key={d} c={r.cells[d]} row={r} day={d} month={month} onSaved={load} />)}
                   {TOTAL_KEYS.map((k) => <td key={k} className="border px-2 text-center font-mono font-semibold bg-slate-50">{r.totals[k] || 0}</td>)}
                   <td className="border px-2 text-center font-mono font-semibold bg-slate-50 text-orange-600">{r.totals.late || 0}</td>

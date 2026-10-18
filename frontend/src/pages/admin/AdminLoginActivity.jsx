@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Monitor, Smartphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { PageHeader, Panel, NativeSelect, Empty } from "@/components/common";
+import { PageHeader, Panel, NativeSelect, Empty, EmpCode, empLabel } from "@/components/common";
 import { api, localDate } from "@/lib/api";
 
 const device = (ua = "") => {
@@ -17,7 +17,7 @@ const STATUS = { online: ["Online", "bg-emerald-100 text-emerald-800", "bg-emera
 const TYPE = { login: ["Login", "bg-emerald-100 text-emerald-800"], logout: ["Logout", "bg-slate-200 text-slate-700"], failed: ["Failed", "bg-rose-100 text-rose-700"] };
 
 const Device = ({ ua }) => { const d = device(ua); const I = d.mobile ? Smartphone : Monitor; return <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><I size={13} />{d.label}</span>; };
-const Who = ({ e, fallback }) => <div><div className="font-semibold leading-tight">{e?.name || fallback || "Unknown"}</div><div className="text-[11px] font-mono text-muted-foreground">{e?.employee_id || "—"}</div></div>;
+const Who = ({ e, fallback }) => <div><div className="font-semibold leading-tight">{e?.name || fallback || "Unknown"}</div><div className="text-[11px] text-muted-foreground"><EmpCode e={e} /></div></div>;
 
 const SessionCard = ({ s }) => {
   const [l, cls, dot] = STATUS[s.status] || ["—", "bg-slate-100", "bg-slate-400"];
@@ -94,7 +94,7 @@ export default function AdminLoginActivity() {
           <Input type="date" value={f.date} onChange={set("date")} className="sm:w-44" data-testid="logs-date" />
           <NativeSelect value={f.user_id} onChange={set("user_id")} className="sm:w-56" data-testid="logs-employee">
             <option value="">All employees</option>
-            {employees.map((e) => <option key={e.id} value={e.id}>{e.employee_id} · {e.name}</option>)}
+            {employees.map((e) => <option key={e.id} value={e.id}>{empLabel(e)}</option>)}
           </NativeSelect>
           <NativeSelect value={f.type} onChange={set("type")} className="sm:w-36" data-testid="logs-type">
             <option value="">All events</option><option value="login">Login</option><option value="logout">Logout</option><option value="failed">Failed</option>

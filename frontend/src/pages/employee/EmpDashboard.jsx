@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarCheck2, Hourglass, Plane, Wallet, LogIn, LogOut, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Panel, StatCard, StatusBadge, Empty } from "@/components/common";
+import { Panel, StatCard, StatusBadge, Empty, EmpCode } from "@/components/common";
 import PunchDialog from "@/components/PunchDialog";
 import { BalanceCards } from "@/components/LeaveBalance";
 import { useAuth } from "@/context/AuthContext";
@@ -108,7 +108,8 @@ export default function EmpDashboard() {
       <div className="rise">
         <div className="text-xs uppercase tracking-[0.2em] font-semibold text-primary mb-2">Namaste</div>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight" data-testid="welcome-name">{user?.name}</h1>
-        <p className="text-muted-foreground mt-1">{[user?.designation, user?.department].filter(Boolean).join(" · ") || user?.employee_id}</p>
+        <p className="text-muted-foreground mt-1">{[user?.designation, user?.department].filter(Boolean).join(" · ")}</p>
+        <EmpCode e={user} className="text-xs text-muted-foreground mt-1" />
       </div>
 
       {user?.must_change_password && (

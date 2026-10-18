@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Panel, Info, Field, NativeSelect } from "@/components/common";
+import { Panel, Info, Field, NativeSelect, ShortBadge } from "@/components/common";
+import { ShortCodeControl } from "@/components/ShortCodeControl";
 import EmployeeFormDialog from "@/components/EmployeeFormDialog";
 import ServiceTimeline from "@/components/ServiceTimeline";
 import SalaryBreakup from "@/components/SalaryBreakup";
@@ -85,7 +86,7 @@ export function EmployeeRecord({ id, embedded }) {
   if (!e) return <div className="text-muted-foreground">Loading…</div>;
 
   const groups = [
-    ["Job", [["Employee ID", e.employee_id], ["Department", e.department], ["Designation", e.designation], ["Joining date", fmtDate(e.joining_date)], ["Location", e.location], ["Project site", e.project_site], ["Reporting manager", e.reporting_manager]]],
+    ["Job", [["Employee ID", e.employee_id], ["Short code", e.short_code], ["Department", e.department], ["Designation", e.designation], ["Joining date", fmtDate(e.joining_date)], ["Location", e.location], ["Project site", e.project_site], ["Reporting manager", e.reporting_manager]]],
     ["Personal & contact", [["Email", e.email], ["Phone", e.phone], ["Date of birth", fmtDate(e.dob)], ["Gender", e.gender], ["Father's name", e.father_name], ["Address", e.address]]],
     ["Bank & statutory", [["Bank", e.bank_name], ["Account no.", e.bank_account], ["IFSC", e.ifsc], ["PAN", e.pan], ["UAN / PF", e.uan]]],
   ];
@@ -111,7 +112,7 @@ export function EmployeeRecord({ id, embedded }) {
             ? <img src={media.photo} alt={e.name} className="h-28 w-24 rounded-xl object-cover ring-4 ring-white/10 shrink-0" data-testid="hero-photo" />
             : <div className="h-28 w-24 rounded-xl bg-white/10 grid place-items-center text-3xl font-display font-bold shrink-0">{e.name?.[0]}</div>}
           <div className="min-w-0 flex-1">
-            <div className="font-mono text-xs tracking-widest text-blue-300">{e.employee_id}</div>
+            <div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs tracking-widest text-blue-300">{e.employee_id}</span><ShortBadge code={e.short_code} className="!text-[11px]" /></div>
             <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight mt-1" data-testid="hero-name">{e.name}</h1>
             <div className="text-slate-300 mt-1">{[e.designation, e.department].filter(Boolean).join(" · ") || "—"}</div>
             <div className="flex flex-wrap gap-2 mt-3 text-xs font-semibold">
@@ -124,6 +125,7 @@ export function EmployeeRecord({ id, embedded }) {
         <div className="px-6 sm:px-8 py-4 border-t border-white/10 flex flex-wrap items-center gap-2" data-testid="hero-actions">
           <span className="rounded-md bg-white/10 px-3 h-9 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal {live ? "Live" : "Unlive"} <AccessSwitch employee={e} onChange={setE} /></span>
           <Button size="sm" variant="secondary" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={14} className="mr-2" />Edit details</Button>
+          <ShortCodeControl employee={e} onChange={setE} />
           <Button size="sm" variant="secondary" onClick={() => setReset(true)} data-testid="reset-password-btn"><KeyRound size={14} className="mr-2" />Reset password</Button>
           <Button size="sm" variant="secondary" onClick={() => setSlipConfirm(true)} data-testid="print-slip-btn"><Printer size={14} className="mr-2" />Print slip</Button>
           {!embedded && <Button size="sm" variant="secondary" asChild data-testid="open-service-book-btn"><Link to={`/admin/service-book?id=${e.id}`}><BookOpen size={14} className="mr-2" />Service book</Link></Button>}

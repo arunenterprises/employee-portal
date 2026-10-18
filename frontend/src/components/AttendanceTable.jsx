@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MapPin, CalendarX2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty } from "@/components/common";
+import { Empty, EmpCode } from "@/components/common";
 import { fmtDate, fmtTime, fmtHours, fmtLate, mapLink } from "@/lib/api";
 
 const PunchCell = ({ p, onView, late }) => {
@@ -39,7 +39,7 @@ export default function AttendanceTable({ rows, showEmployee }) {
           <tbody className="divide-y">
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50 transition-colors" data-testid={`attendance-row-${r.id}`}>
-                {showEmployee && <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{r.employee?.name || "—"}</div><div className="text-xs text-muted-foreground">{r.employee?.employee_id}</div></td>}
+                {showEmployee && <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{r.employee?.name || "—"}</div><div className="text-xs text-muted-foreground"><EmpCode e={r.employee} /></div></td>}
                 <td className="px-5 sm:px-6 py-3 font-medium whitespace-nowrap">{fmtDate(r.date)}</td>
                 <td className="px-3 py-3"><PunchCell p={r.punch_in} onView={setView} late={r.late ? r.late_minutes : 0} /></td>
                 <td className="px-3 py-3"><PunchCell p={r.punch_out} onView={setView} /></td>

@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from payslip_pdf import build_payslip_pdf
 from vendor_sync import run_sync, push_now, push_day
 import calendar
+from shortcode import make_short_code, short_code_taken, SHORT_RE
 import csv
 import io
 import asyncio
@@ -147,8 +148,8 @@ async def employee_user(user: dict = Depends(current_user)) -> dict:
 
 async def employee_map(ids) -> dict:
     ids = [oid(i) for i in set(ids) if i]
-    docs = await db.users.find({"_id": {"$in": ids}}, {"name": 1, "employee_id": 1, "department": 1, "designation": 1}).to_list(5000)
-    return {str(d["_id"]): {"name": d.get("name"), "employee_id": d.get("employee_id"), "department": d.get("department"), "designation": d.get("designation")} for d in docs}
+    docs = await db.users.find({"_id": {"$in": ids}}, {"name": 1, "employee_id": 1, "short_code": 1, "department": 1, "designation": 1}).to_list(5000)
+    return {str(d["_id"]): {"name": d.get("name"), "employee_id": d.get("employee_id"), "short_code": d.get("short_code"), "department": d.get("department"), "designation": d.get("designation")} for d in docs}
 
 
 async def attach_employee(items: List[dict]) -> List[dict]:
@@ -175,7 +176,7 @@ async def login(body: LoginIn, request: Request):
     key = ident.lower()
     att = await db.login_attempts.find_one({"identifier": key})
     locked = att and att.get("count", 0) >= 5 and att["last"] > now_utc() - timedelta(minutes=15)
-    user = await db.users.find_one({"$or": [{"email": ident.lower()}, {"employee_id": ident.upper()}]})
+    user = await db.users.find_one({"$or": [{"email": ident.lower()}, {"employee_id": ident.upper()}, {"short_code": ident.upper()}]})
     if locked:
         await log_auth("failed", request, user, ident, detail="Locked: too many failed attempts")
         raise HTTPException(status_code=429, detail="Too many failed attempts. Try again in 15 minutes.")
@@ -315,7 +316,7 @@ async def create_employee(body: EmployeeIn, admin: dict = Depends(admin_user)):
     if not pwd or len(pwd) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     await check_unique(data["email"], data["employee_id"])
-    data.update({"role": "employee", "password_hash": hash_password(pwd), "created_at": now_utc()})
+    data.update({"role": "employee", "password_hash": hash_password(pwd), "created_at": now_utc(), "short_code": await make_short_code(db, data["employee_id"])})
     res = await db.users.insert_one(data)
     if data["joining_date"]:
         await db.service_records.insert_one({
@@ -323,6 +324,42 @@ async def create_employee(body: EmployeeIn, admin: dict = Depends(admin_user)):
             "title": f"Joined as {data['designation'] or 'Employee'}", "notes": data["department"], "created_at": now_utc(),
         })
     return ser(await db.users.find_one({"_id": res.inserted_id}))
+
+
+class ShortCodeIn(BaseModel):
+    short_code: Optional[str] = None
+
+
+class ShortCodeBulkIn(BaseModel):
+    overwrite: bool = False
+
+
+@api.post("/admin/employees/short-codes/generate")
+async def generate_short_codes(body: ShortCodeBulkIn, admin: dict = Depends(admin_user)):
+    q = {"role": "employee"} if body.overwrite else {"role": "employee", "$or": [{"short_code": None}, {"short_code": ""}, {"short_code": {"$exists": False}}]}
+    docs = await db.users.find(q, {"employee_id": 1}).sort("employee_id", 1).to_list(5000)
+    if body.overwrite:
+        await db.users.update_many({"_id": {"$in": [d["_id"] for d in docs]}}, {"$unset": {"short_code": ""}})
+    for d in docs:
+        await db.users.update_one({"_id": d["_id"]}, {"$set": {"short_code": await make_short_code(db, d.get("employee_id"), d["_id"])}})
+    return {"generated": len(docs)}
+
+
+@api.put("/admin/employees/{emp_id}/short-code")
+async def set_short_code(emp_id: str, body: ShortCodeIn, admin: dict = Depends(admin_user)):
+    emp = await db.users.find_one({"_id": oid(emp_id), "role": "employee"}, {"employee_id": 1})
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    code = (body.short_code or "").strip().upper()
+    if code:
+        if not SHORT_RE.match(code):
+            raise HTTPException(status_code=400, detail="Short code must be 5-6 letters/numbers (A-Z, 0-9)")
+        if await short_code_taken(db, code, emp["_id"]):
+            raise HTTPException(status_code=409, detail=f"Short code {code} is already used by another employee")
+    else:
+        code = await make_short_code(db, emp.get("employee_id"), emp["_id"])
+    await db.users.update_one({"_id": emp["_id"]}, {"$set": {"short_code": code}})
+    return {"short_code": code}
 
 
 @api.get("/admin/employees/{emp_id}")
@@ -403,7 +440,7 @@ async def credential_slips(body: SlipsIn, admin: dict = Depends(admin_user)):
         doc = await get_emp_or_404(uid)
         pwd = "".join(secrets.choice(SLIP_CHARS) for _ in range(8))
         await db.users.update_one({"_id": doc["_id"]}, {"$set": {"password_hash": hash_password(pwd), "must_change_password": True, "slip_issued_at": now_utc()}})
-        slips.append({"id": uid, "name": doc.get("name"), "employee_id": doc.get("employee_id"), "designation": doc.get("designation"),
+        slips.append({"id": uid, "name": doc.get("name"), "employee_id": doc.get("employee_id"), "short_code": doc.get("short_code"), "designation": doc.get("designation"),
                       "department": doc.get("department"), "email": doc.get("email"), "password": pwd})
     return {"slips": slips, "issued_at": now_utc().isoformat()}
 
@@ -768,14 +805,14 @@ async def sheet_row(e: dict, month: str) -> dict:
     for c in cells.values():
         totals[c["code"]] = totals.get(c["code"], 0) + 1
     totals["late"] = sum(1 for c in cells.values() if c.get("late"))
-    return {"user_id": uid, "name": e.get("name"), "employee_id": e.get("employee_id"), "department": e.get("department"), "cells": cells, "totals": totals}
+    return {"user_id": uid, "name": e.get("name"), "employee_id": e.get("employee_id"), "short_code": e.get("short_code"), "department": e.get("department"), "cells": cells, "totals": totals}
 
 
 @api.get("/admin/attendance-sheet")
 async def attendance_sheet(month: str, admin: dict = Depends(admin_user)):
     valid_month(month)
     ndays = calendar.monthrange(int(month[:4]), int(month[5:]))[1]
-    emps = await db.users.find({"role": "employee"}, {"name": 1, "employee_id": 1, "department": 1}).sort("employee_id", 1).to_list(5000)
+    emps = await db.users.find({"role": "employee"}, {"name": 1, "employee_id": 1, "short_code": 1, "department": 1}).sort("employee_id", 1).to_list(5000)
     rows = [await sheet_row(e, month) for e in emps]
     last_sync = await db.sync_logs.find_one({"status": "success"}, sort=[("started_at", -1)])
     return {"month": month, "days": ndays, "rows": rows, "last_sync": last_sync["finished_at"].isoformat() if last_sync else None}
@@ -925,11 +962,11 @@ class LeaveLiveIn(BaseModel):
 @api.get("/admin/leave-balances")
 async def all_leave_balances(year: Optional[str] = None, admin: dict = Depends(admin_user)):
     year = year or this_year()
-    emps = await db.users.find({"role": "employee"}, {"name": 1, "employee_id": 1, "department": 1, "leave_balance_live": 1, "active": 1}).sort("employee_id", 1).to_list(5000)
+    emps = await db.users.find({"role": "employee"}, {"name": 1, "employee_id": 1, "short_code": 1, "department": 1, "leave_balance_live": 1, "active": 1}).sort("employee_id", 1).to_list(5000)
     out = []
     for e in emps:
         b = await compute_balance(str(e["_id"]), year)
-        out.append({"user_id": str(e["_id"]), "name": e.get("name"), "employee_id": e.get("employee_id"), "department": e.get("department"), "active": e.get("active", True),
+        out.append({"user_id": str(e["_id"]), "name": e.get("name"), "employee_id": e.get("employee_id"), "short_code": e.get("short_code"), "department": e.get("department"), "active": e.get("active", True),
                     "live": e.get("leave_balance_live") is not False, "configured": b["configured"], "balances": b["balances"]})
     return {"year": year, "rows": out}
 
@@ -969,7 +1006,7 @@ async def upload_leave_balances(year: str = Form(...), file: UploadFile = File(.
         code = (row.get(code_col) or "").strip().upper()
         if not code:
             continue
-        emp = await db.users.find_one({"employee_id": code, "role": "employee"}, {"_id": 1})
+        emp = await db.users.find_one({"$or": [{"employee_id": code}, {"short_code": code}], "role": "employee"}, {"_id": 1})
         if not emp:
             errors.append(f"Row {i}: employee code {code} not found")
             continue
@@ -1287,6 +1324,7 @@ app.add_middleware(
 async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("employee_id", unique=True, sparse=True)
+    await db.users.create_index("short_code", unique=True, partialFilterExpression={"short_code": {"$type": "string"}})
     await db.login_attempts.create_index("identifier")
     await db.attendance.create_index([("user_id", 1), ("date", 1)], unique=True)
     await db.requests.create_index([("user_id", 1), ("created_at", -1)])

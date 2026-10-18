@@ -1,4 +1,5 @@
 import os
+from shortcode import make_short_code
 import re
 import logging
 from datetime import datetime, timezone, timedelta, date as date_cls
@@ -114,6 +115,7 @@ async def _upsert_one(db, v, hash_password, now) -> str:
     data.update({
         "email": await _pick_email(db, v, code), "role": "employee", "created_at": now, "synced_at": now,
         "password_hash": hash_password(initial_password(v, code)), "must_change_password": True,
+        "short_code": await make_short_code(db, code),
     })
     res = await db.users.insert_one(data)
     await _save_media(db, str(res.inserted_id), v, now)

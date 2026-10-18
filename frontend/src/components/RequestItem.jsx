@@ -1,5 +1,5 @@
 import { Plane, Banknote, FileText, MessageSquare, Fingerprint } from "lucide-react";
-import { StatusBadge } from "@/components/common";
+import { StatusBadge, ShortBadge } from "@/components/common";
 import { fmtDate, fmtINR, monthLabel } from "@/lib/api";
 
 const ICONS = { leave: Plane, advance: Banknote, payslip: FileText, missed_punch: Fingerprint, other: MessageSquare };
@@ -27,7 +27,7 @@ export default function RequestItem({ r, children, showEmployee }) {
             <StatusBadge status={r.status} data-testid={`request-status-${r.id}`} />
           </div>
           <div className="text-sm text-muted-foreground mt-0.5">{sub}</div>
-          {showEmployee && <div className="text-sm mt-2"><span className="font-semibold">{r.employee?.name}</span> <span className="text-muted-foreground">· {r.employee?.employee_id}{r.employee?.department ? ` · ${r.employee.department}` : ""}</span></div>}
+          {showEmployee && <div className="text-sm mt-2"><span className="font-semibold">{r.employee?.name}</span> <span className="text-muted-foreground">· {r.employee?.employee_id} <ShortBadge code={r.employee?.short_code} />{r.employee?.department ? ` · ${r.employee.department}` : ""}</span></div>}
           {r.reason && <p className="text-sm mt-2 text-slate-700">{r.reason}</p>}
           {showEmployee && r.type === "leave" && r.balance && (
             <div className={`inline-flex flex-wrap gap-x-3 text-xs mt-2 rounded-md px-3 py-1.5 ${r.status === "pending" && r.balance.available - r.balance.pending < 0 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-800"}`} data-testid={`request-balance-${r.id}`}>

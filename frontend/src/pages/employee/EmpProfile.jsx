@@ -20,7 +20,7 @@ export default function EmpProfile() {
   }, []);
 
   const groups = [
-    ["Job details", [["Employee ID", u.employee_id], ["Department", u.department], ["Designation", u.designation], ["Joining date", fmtDate(u.joining_date)]]],
+    ["Job details", [["Employee ID", u.employee_id], ["Short code (login)", u.short_code], ["Department", u.department], ["Designation", u.designation], ["Joining date", fmtDate(u.joining_date)]]],
     ["Personal", [["Email", u.email], ["Phone", u.phone], ["Date of birth", fmtDate(u.dob)], ["Gender", u.gender], ["Address", u.address]]],
     ["Bank & statutory", [["Bank", u.bank_name], ["Account no.", u.bank_account], ["IFSC", u.ifsc], ["PAN", u.pan], ["UAN", u.uan]]],
     ["Salary (monthly)", [["Basic", fmtINR(u.basic)], ["HRA", fmtINR(u.hra)], ["Allowances", fmtINR(u.allowances)], ["Gross", fmtINR((u.basic || 0) + (u.hra || 0) + (u.allowances || 0))]]],

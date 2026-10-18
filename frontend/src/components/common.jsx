@@ -15,6 +15,16 @@ export const Badge2 = ({ tone = "neutral", children, ...rest }) => (
 
 export const StatusBadge = ({ status, ...rest }) => <Badge2 tone={status} {...rest}>{status}</Badge2>;
 
+export const ShortBadge = ({ code, className = "" }) => code ? (
+  <span className={`inline-flex items-center rounded bg-blue-100 text-blue-800 px-1.5 py-px font-mono text-[10px] font-bold tracking-wider align-middle ${className}`} title="Short code (can be used to log in)" data-testid={`short-code-${code}`}>{code}</span>
+) : null;
+
+export const EmpCode = ({ e, className = "" }) => (
+  <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}><span className="font-mono">{e?.employee_id || "—"}</span><ShortBadge code={e?.short_code} /></span>
+);
+
+export const empLabel = (e) => `${e.short_code ? `${e.short_code} · ` : ""}${e.employee_id} · ${e.name}`;
+
 export const PageHeader = ({ eyebrow, title, desc, action }) => (
   <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 rise">
     <div>

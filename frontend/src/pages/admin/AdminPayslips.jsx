@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FilePlus2, Upload, Download, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { PageHeader, Panel, Empty, NativeSelect, Badge2 } from "@/components/common";
+import { PageHeader, Panel, Empty, NativeSelect, Badge2, EmpCode, empLabel } from "@/components/common";
 import { GeneratePayslipDialog, UploadPayslipDialog } from "@/components/PayslipDialogs";
 import { api, downloadPayslip, errMsg, fmtINR, monthLabel } from "@/lib/api";
 
@@ -30,7 +30,7 @@ export default function AdminPayslips() {
       <Panel>
         <NativeSelect value={userId} onChange={(e) => setUserId(e.target.value)} className="sm:w-72 mb-5" data-testid="payslip-employee-filter">
           <option value="">All employees</option>
-          {employees.map((e) => <option key={e.id} value={e.id}>{e.employee_id} · {e.name}</option>)}
+          {employees.map((e) => <option key={e.id} value={e.id}>{empLabel(e)}</option>)}
         </NativeSelect>
         {rows.length ? (
           <div className="overflow-x-auto -mx-5 sm:-mx-6">
@@ -47,7 +47,7 @@ export default function AdminPayslips() {
               <tbody className="divide-y">
                 {rows.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors" data-testid={`payslip-row-${p.id}`}>
-                    <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{p.employee?.name}</div><div className="text-xs text-muted-foreground">{p.employee?.employee_id}</div></td>
+                    <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{p.employee?.name}</div><div className="text-xs text-muted-foreground"><EmpCode e={p.employee} /></div></td>
                     <td className="px-3 py-3 font-medium">{monthLabel(p.month)}</td>
                     <td className="px-3 py-3"><Badge2 tone={p.kind === "generated" ? "blue" : "neutral"}>{p.kind}</Badge2></td>
                     <td className="px-3 py-3 text-right font-mono font-semibold">{p.net ? fmtINR(p.net) : "—"}</td>

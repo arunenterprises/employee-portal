@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Field, NativeSelect } from "@/components/common";
+import { Field, NativeSelect, empLabel } from "@/components/common";
 import { api, errMsg, fmtINR } from "@/lib/api";
 
 const prevMonth = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
@@ -13,7 +13,7 @@ const DEFAULT_DED = ["Provident Fund", "Professional Tax", "TDS", "Advance Recov
 const EmployeePicker = ({ employees, value, onChange, testId }) => (
   <NativeSelect required value={value} onChange={(e) => onChange(e.target.value)} data-testid={testId}>
     <option value="">Select employee</option>
-    {employees.map((e) => <option key={e.id} value={e.id}>{e.employee_id} · {e.name}</option>)}
+    {employees.map((e) => <option key={e.id} value={e.id}>{empLabel(e)}</option>)}
   </NativeSelect>
 );
 

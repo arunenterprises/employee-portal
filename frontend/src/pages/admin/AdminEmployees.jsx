@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Users, RefreshCw, Printer } from "lucide-react";
+import { Plus, Search, Users, RefreshCw, Printer, Hash } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader, Panel, Empty, Badge2 } from "@/components/common";
+import { PageHeader, Panel, Empty, Badge2, EmpCode } from "@/components/common";
 import EmployeeFormDialog from "@/components/EmployeeFormDialog";
 import { AccessSwitch } from "@/components/EmployeeAccess";
 import CredentialSlipsDialog, { SlipsPreview } from "@/components/CredentialSlips";
@@ -50,12 +50,21 @@ export default function AdminEmployees() {
   useEffect(() => { load(); }, [load]);
 
   const s = q.toLowerCase();
-  const shown = rows.filter((e) => [e.name, e.employee_id, e.email, e.department, e.designation].some((v) => (v || "").toLowerCase().includes(s)));
+  const shown = rows.filter((e) => [e.name, e.employee_id, e.short_code, e.email, e.department, e.designation].some((v) => (v || "").toLowerCase().includes(s)));
+  const missing = rows.filter((e) => !e.short_code).length;
+  const genCodes = async () => {
+    try {
+      const { data } = await api.post("/admin/employees/short-codes/generate", { overwrite: false });
+      toast.success(`Short code generated for ${data.generated} employee(s)`);
+      load();
+    } catch (e) { toast.error(errMsg(e)); }
+  };
 
   return (
     <div>
       <PageHeader eyebrow="People" title="Employees" desc="Create employee accounts and manage their records."
         action={<div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={genCodes} disabled={!missing} data-testid="generate-short-codes-btn"><Hash size={16} className="mr-2" />{missing ? `Generate short codes (${missing})` : "All have short codes"}</Button>
           <Button variant="outline" onClick={() => setSlipsOpen(true)} data-testid="credential-slips-btn"><Printer size={16} className="mr-2" />Credential slips</Button>
           <Button onClick={() => setOpen(true)} data-testid="add-employee-btn"><Plus size={16} className="mr-2" />Add employee</Button>
         </div>} />
@@ -63,7 +72,7 @@ export default function AdminEmployees() {
       <Panel>
         <div className="relative mb-5 max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, ID, department…" className="pl-9" data-testid="employee-search-input" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, ID, short code, department…" className="pl-9" data-testid="employee-search-input" />
         </div>
         {shown.length ? (
           <div className="overflow-x-auto -mx-5 sm:-mx-6">
@@ -81,7 +90,7 @@ export default function AdminEmployees() {
               <tbody className="divide-y">
                 {shown.map((e) => (
                   <tr key={e.id} onClick={() => navigate(`/admin/employees/${e.id}`)} className="cursor-pointer hover:bg-slate-50 transition-colors" data-testid={`employee-row-${e.employee_id}`}>
-                    <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{e.name}</div><div className="text-xs text-muted-foreground font-mono">{e.employee_id}{e.source === "vendor" && <span className="ml-2 text-primary">· Vendor HR</span>}</div></td>
+                    <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{e.name}</div><div className="text-xs text-muted-foreground mt-0.5"><EmpCode e={e} />{e.source === "vendor" && <span className="ml-2 text-primary">· Vendor HR</span>}</div></td>
                     <td className="px-3 py-3">{e.department || "—"}</td>
                     <td className="px-3 py-3">{e.designation || "—"}</td>
                     <td className="px-3 py-3 whitespace-nowrap">{fmtDate(e.joining_date)}</td>

@@ -5,15 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Empty } from "@/components/common";
+import { Empty, EmpCode, ShortBadge } from "@/components/common";
 import { LeaveBalanceAdmin, TRACKED } from "@/components/LeaveBalance";
 import { api, errMsg } from "@/lib/api";
 
 const SHORT = { "Casual Leave": "CL", "Sick Leave": "SL", "Earned Leave": "EL" };
 
 const downloadTemplate = (rows, year) => {
-  const head = ["Employee Code", "Name", "CL", "SL", "EL", "Live"];
-  const lines = rows.map((r) => [r.employee_id, r.name, ...TRACKED.map((lt) => r.balances.find((b) => b.leave_type === lt)?.quota ?? 0), r.live ? "Yes" : "No"]);
+  const head = ["Employee Code", "Short Code", "Name", "CL", "SL", "EL", "Live"];
+  const lines = rows.map((r) => [r.employee_id, r.short_code || "", r.name, ...TRACKED.map((lt) => r.balances.find((b) => b.leave_type === lt)?.quota ?? 0), r.live ? "Yes" : "No"]);
   const csv = "\ufeff" + [head, ...lines].map((l) => l.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -31,7 +31,7 @@ const BalCell = ({ b }) => (
 
 const Row = ({ r, onLive, onEdit }) => (
   <tr className="border-b last:border-0 hover:bg-slate-50" data-testid={`lb-row-${r.employee_id}`}>
-    <td className="px-5 sm:px-6 py-2.5"><div className="font-semibold leading-tight">{r.name}</div><div className="text-[11px] font-mono text-muted-foreground">{r.employee_id}</div></td>
+    <td className="px-5 sm:px-6 py-2.5"><div className="font-semibold leading-tight">{r.name}</div><div className="text-[11px] text-muted-foreground"><EmpCode e={r} /></div></td>
     {r.configured ? TRACKED.map((lt) => <BalCell key={lt} b={r.balances.find((b) => b.leave_type === lt)} />) : <td colSpan={3} className="text-center text-xs text-muted-foreground">Not set</td>}
     <td className="py-2.5 px-2">
       <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -107,7 +107,7 @@ export default function LeaveBalanceManager() {
       )}
       <Dialog open={!!edit} onOpenChange={(o) => { if (!o) { setEdit(null); load(); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="lb-edit-dialog">
-          <DialogHeader><DialogTitle className="font-display">Leave balance · {edit?.name} <span className="font-mono text-sm text-muted-foreground">{edit?.employee_id}</span></DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display">Leave balance · {edit?.name} <span className="font-mono text-sm text-muted-foreground">{edit?.employee_id}</span> <ShortBadge code={edit?.short_code} /></DialogTitle></DialogHeader>
           {edit && <LeaveBalanceAdmin userId={edit.user_id} />}
         </DialogContent>
       </Dialog>
