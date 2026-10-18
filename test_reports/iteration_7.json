@@ -1,0 +1,37 @@
+{
+  "summary": "Tested employee Login Activity feature (backend + frontend). Backend: 12 pytest cases, 11 pass. Login creates login_sessions + 'login' log with correct real client IP (136.70.105.25 matched public IP) and UA; wrong password -> 'failed'/'Wrong password'; unknown user -> 'failed'/'Unknown user' (user_id null); logout ends session (same token -> 401 on /auth/me and on 2nd logout), 'logout' log recorded; sessions endpoint lists only employee sessions with status/ip/ua/login_at/last_seen/employee; logs filters (date, user_id, type, invalid date 400, empty for old date, admin logs excluded) work; employee token 403, no token 401. Regressions OK: admin login, inactive (403 + 'Account inactive' log), portal-disabled (403 + log, existing token 401), 5-fail lockout (429 + 'Locked' log, unlocked by admin reset). Frontend: 'Logins' sidebar nav -> /admin/login-activity; online-count/idle-count, session-TEST_UILA1 card with session-ip shown; employee UI logout (nav-logout-btn) -> admin refresh shows Logout event and card removed; logs-type, logs-employee, logs-all-dates filters work; mobile 390px no horizontal overflow, 7-item bottom nav fits.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "DELETE /api/admin/employees/{id}", "issue": "Does not delete/end the employee's login_sessions (or login_logs). Their open session keeps showing in 'Logged in now' as an 'Unknown' / '—' card with status Online for up to 12h (observed 8 such cards from deleted TEST employees). Fix: add db.login_sessions to the delete cascade (or set logout_at), and/or filter sessions whose employee lookup is None in /admin/login-activity/sessions."},
+      {"endpoint": "PATCH /api/admin/employees/{id}/access (enabled=false) & PUT active=false", "issue": "Disabling portal access / deactivating does not end active sessions; the token is correctly rejected (401) but the session still appears in 'Logged in now' as Online until it ages out. Set logout_at on these sessions (or exclude disabled/inactive users in the sessions endpoint)."},
+      {"endpoint": "client_ip()", "issue": "IP can be spoofed: backend does not receive cf-connecting-ip here, so the first X-Forwarded-For entry is used, and a client-sent 'X-Forwarded-For: 5.6.7.8' was logged as 5.6.7.8. Prefer the last trusted proxy hop (e.g. rightmost-but-ingress entry) or x-real-ip set by ingress. Low priority (audit accuracy)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Login Activity", "issues": ["Session cards for deleted employees render as 'Unknown' with '—' ID (consequence of the backend orphan-session issue)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_login_activity.py", "/app/test_reports/pytest/pytest_login_activity.xml"],
+  "action_items": [
+    "End/delete login_sessions when an employee is deleted, portal-disabled or deactivated (or filter them out in /admin/login-activity/sessions) so 'Logged in now' doesn't show stale 'Unknown'/Online cards.",
+    "Optional: harden client_ip against client-supplied X-Forwarded-For."
+  ],
+  "critical_code_review_comments": [
+    "server.py delete_employee cascade list misses db.login_sessions / db.login_logs.",
+    "AppShell doLogout calls logout() without await then navigate('/login'); works in testing (logout API fires before token removal), but awaiting would be safer.",
+    "login_logs grows unbounded; consider TTL index on 'at' (e.g. 90 days) and an index on (user_id, at) / (type, at). logs endpoint caps at 500 with no pagination.",
+    "server.py is 1200 lines - should be split into routers."
+  ],
+  "updated_files": ["/app/backend/tests/test_login_activity.py"],
+  "success_rate": {"backend": "92% (11/12)", "frontend": "100%"},
+  "test_credentials": "Admin arunenterprises2023@gmail.com / WorkPulse@2026 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created TEST_LA* and TEST_UILA1 employees; all deleted. Removed 9 orphan login_sessions of deleted test users from DB. A pre-existing TEST_LG1 employee (created 03:20, not by this agent) remains.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend/tests && REACT_APP_BACKEND_URL=... pytest test_login_activity.py (pytest.ini uses xdist; use -n0 to see prints). test_deleted_employee_session_orphan fails until delete cascades sessions. Note: each run leaves orphan sessions until fixed.",
+  "rca of the issue": "Orphan sessions: login_sessions query in /admin/login-activity/sessions only filters role/logout_at/login_at; delete_employee and access/active toggles never touch login_sessions, and current_user rejection of the user doesn't update the session, so last_seen stays recent and status=online with employee=None."
+}

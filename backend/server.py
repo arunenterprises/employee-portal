@@ -87,7 +87,8 @@ ONLINE_MINUTES = 15
 
 def client_ip(request: Request) -> str:
     h = request.headers
-    ip = h.get("cf-connecting-ip") or (h.get("x-forwarded-for") or "").split(",")[0].strip() or h.get("x-real-ip")
+    xff = [p.strip() for p in (h.get("x-forwarded-for") or "").split(",") if p.strip()]
+    ip = h.get("cf-connecting-ip") or (xff[-3] if len(xff) >= 3 else xff[0] if xff else "") or h.get("x-real-ip")
     return ip or (request.client.host if request.client else "")
 
 
@@ -222,7 +223,8 @@ def _session_out(s: dict, emps: dict) -> dict:
 async def login_sessions(admin: dict = Depends(admin_user)):
     docs = await db.login_sessions.find({"role": "employee", "logout_at": None, "login_at": {"$gte": now_utc() - timedelta(hours=12)}}).sort("last_seen", -1).to_list(1000)
     emps = await employee_map([d["user_id"] for d in docs])
-    out = [_session_out(d, emps) for d in docs]
+    allowed = {str(u["_id"]) for u in await db.users.find({"_id": {"$in": [oid(d["user_id"]) for d in docs]}, "active": {"$ne": False}, "portal_enabled": {"$ne": False}}, {"_id": 1}).to_list(1000)}
+    out = [_session_out(d, emps) for d in docs if d["user_id"] in allowed]
     return {"online_minutes": ONLINE_MINUTES, "sessions": out}
 
 
@@ -352,7 +354,7 @@ async def delete_employee(emp_id: str, admin: dict = Depends(admin_user)):
     res = await db.users.delete_one({"_id": oid(emp_id), "role": "employee"})
     if not res.deleted_count:
         raise HTTPException(status_code=404, detail="Employee not found")
-    for col in (db.service_records, db.attendance, db.requests, db.payslips, db.employee_media, db.leave_balances, db.leave_adjustments, db.appraisals):
+    for col in (db.service_records, db.attendance, db.requests, db.payslips, db.employee_media, db.leave_balances, db.leave_adjustments, db.appraisals, db.login_sessions, db.login_logs, db.attendance_overrides):
         await col.delete_many({"user_id": emp_id})
     return {"ok": True}
 

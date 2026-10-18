@@ -74,6 +74,11 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Testing agent iteration_6: employee-sheet toggle + previous/current month calendar 100% backend/frontend in preview. Production confirmed serving latest build (live issue = browser cache + prod switch defaults OFF).
 - Admin Dashboard layout: compact horizontal stat cards (StatCard `compact` prop), 2/3/5 responsive grid, Pending approvals wrapped in Panel to match Today's attendance.
 
+## Implemented (2026-10-18, iteration 15)
+- Login Activity (Admin > Logins, /admin/login-activity): db.login_sessions (sid in JWT, last_seen updated max 1/min, logout ends session -> token 401) + db.login_logs (login/logout/failed with IP, user agent, detail). "Logged in now" cards (Online = active <=15 min, Idle = not logged out), filterable logs (date/employee/event). Frontend logout calls /api/auth/logout; 4-min heartbeat while tab visible.
+- IP = cf-connecting-ip, else X-Forwarded-For 3rd from right (client, Cloudflare, ingress) so a spoofed header is ignored. Sessions list hides deleted/inactive/portal-disabled employees; deleting an employee cascades login_sessions/login_logs/attendance_overrides.
+- Testing agent iteration_7: frontend 100%, backend 11/12. Its single issue (stale sessions) is fixed, plus IP spoof hardening.
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)
