@@ -67,6 +67,9 @@ User choices: separate new portal; admin creates employee accounts (login with e
 ## Implemented (2026-10-17, iteration 12)
 - Sheet cell edit: click any day in Monthly sheet -> popover with P/A/L/H/W/HL + optional reason. PUT /api/admin/attendance-sheet/cell saves to attendance_overrides (wins over HR/portal/leave in sheet, blue dot) and pushes that day instantly to vendor attendance (push_day). Hourly push_attendance skips overridden days so admin edits aren't reverted.
 
+## Implemented (2026-10-18, iteration 13)
+- Admin > Attendance header toggle "Show attendance to employees" (db.settings _id=portal.employee_sheet_visible; GET/PUT /api/admin/settings/employee-sheet). When ON, employee My attendance page shows calendar sheets for previous + current month (GET /api/attendance/my-sheet, same merged data as admin sheet via sheet_row helper). Default OFF.
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

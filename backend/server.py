@@ -646,40 +646,78 @@ async def decide_request(req_id: str, body: DecisionIn, admin: dict = Depends(ad
     return ser(await db.requests.find_one({"_id": req["_id"]}))
 
 
-@api.get("/admin/attendance-sheet")
-async def attendance_sheet(month: str, admin: dict = Depends(admin_user)):
-    valid_month(month)
+async def sheet_row(e: dict, month: str) -> dict:
     y, m = int(month[:4]), int(month[5:])
     ndays = calendar.monthrange(y, m)[1]
     first, last = f"{month}-01", f"{month}-{ndays:02d}"
+    uid = str(e["_id"])
+    va = await db.vendor_attendance.find_one({"user_id": uid, "year": y, "month": m}) or {}
+    vlate = va.get("late") or {}
+    cells = {dd: {"code": c, "source": "hr", "late": vlate.get(dd) or 0} for dd, c in (va.get("days") or {}).items() if c}
+    for a in await db.attendance.find({"user_id": uid, "date": {"$regex": f"^{month}"}}, {"date": 1, "punch_in.time": 1, "punch_out.time": 1, "late": 1, "late_minutes": 1, "manual": 1}).to_list(40):
+        dd = a["date"][8:10]
+        prev = (cells.get(dd) or {}).get("code")
+        cells[dd] = {"code": prev if prev not in (None, "", "A") else "P", "source": "portal", "manual": bool(a.get("manual")),
+                     "in": (a.get("punch_in") or {}).get("time"), "out": (a.get("punch_out") or {}).get("time"), "late": a.get("late_minutes", 0) if a.get("late") else 0}
+    for lv in await db.requests.find({"user_id": uid, "type": "leave", "status": "approved", "start_date": {"$lte": last}, "end_date": {"$gte": first}}).to_list(50):
+        d = max(date_cls.fromisoformat(lv["start_date"]), date_cls.fromisoformat(first))
+        while d <= min(date_cls.fromisoformat(lv["end_date"]), date_cls.fromisoformat(last)):
+            cells.setdefault(f"{d.day:02d}", {"code": "H" if lv.get("leave_type") == "Half Day" else "L", "source": "leave", "note": lv.get("leave_type")})
+            d += timedelta(days=1)
+    for o in await db.attendance_overrides.find({"user_id": uid, "date": {"$regex": f"^{month}"}}).to_list(40):
+        dd = o["date"][8:10]
+        base = cells.get(dd) or {}
+        cells[dd] = {**base, "code": o["code"], "source": "admin", "late": base.get("late", 0) if o["code"] == "P" else 0, "note": f"Edited by admin{' (' + o['reason'] + ')' if o.get('reason') else ''}"}
+    totals = {}
+    for c in cells.values():
+        totals[c["code"]] = totals.get(c["code"], 0) + 1
+    totals["late"] = sum(1 for c in cells.values() if c.get("late"))
+    return {"user_id": uid, "name": e.get("name"), "employee_id": e.get("employee_id"), "department": e.get("department"), "cells": cells, "totals": totals}
+
+
+@api.get("/admin/attendance-sheet")
+async def attendance_sheet(month: str, admin: dict = Depends(admin_user)):
+    valid_month(month)
+    ndays = calendar.monthrange(int(month[:4]), int(month[5:]))[1]
     emps = await db.users.find({"role": "employee"}, {"name": 1, "employee_id": 1, "department": 1}).sort("employee_id", 1).to_list(5000)
-    rows = []
-    for e in emps:
-        uid = str(e["_id"])
-        va = await db.vendor_attendance.find_one({"user_id": uid, "year": y, "month": m}) or {}
-        vlate = va.get("late") or {}
-        cells = {dd: {"code": c, "source": "hr", "late": vlate.get(dd) or 0} for dd, c in (va.get("days") or {}).items() if c}
-        for a in await db.attendance.find({"user_id": uid, "date": {"$regex": f"^{month}"}}, {"date": 1, "punch_in.time": 1, "punch_out.time": 1, "late": 1, "late_minutes": 1, "manual": 1}).to_list(40):
-            dd = a["date"][8:10]
-            prev = (cells.get(dd) or {}).get("code")
-            cells[dd] = {"code": prev if prev not in (None, "", "A") else "P", "source": "portal", "manual": bool(a.get("manual")),
-                         "in": (a.get("punch_in") or {}).get("time"), "out": (a.get("punch_out") or {}).get("time"), "late": a.get("late_minutes", 0) if a.get("late") else 0}
-        for lv in await db.requests.find({"user_id": uid, "type": "leave", "status": "approved", "start_date": {"$lte": last}, "end_date": {"$gte": first}}).to_list(50):
-            d = max(date_cls.fromisoformat(lv["start_date"]), date_cls.fromisoformat(first))
-            while d <= min(date_cls.fromisoformat(lv["end_date"]), date_cls.fromisoformat(last)):
-                cells.setdefault(f"{d.day:02d}", {"code": "H" if lv.get("leave_type") == "Half Day" else "L", "source": "leave", "note": lv.get("leave_type")})
-                d += timedelta(days=1)
-        for o in await db.attendance_overrides.find({"user_id": uid, "date": {"$regex": f"^{month}"}}).to_list(40):
-            dd = o["date"][8:10]
-            base = cells.get(dd) or {}
-            cells[dd] = {**base, "code": o["code"], "source": "admin", "late": base.get("late", 0) if o["code"] == "P" else 0, "note": f"Edited by admin{' (' + o['reason'] + ')' if o.get('reason') else ''}"}
-        totals = {}
-        for c in cells.values():
-            totals[c["code"]] = totals.get(c["code"], 0) + 1
-        totals["late"] = sum(1 for c in cells.values() if c.get("late"))
-        rows.append({"user_id": uid, "name": e.get("name"), "employee_id": e.get("employee_id"), "department": e.get("department"), "cells": cells, "totals": totals})
+    rows = [await sheet_row(e, month) for e in emps]
     last_sync = await db.sync_logs.find_one({"status": "success"}, sort=[("started_at", -1)])
     return {"month": month, "days": ndays, "rows": rows, "last_sync": last_sync["finished_at"].isoformat() if last_sync else None}
+
+
+class SheetVisibilityIn(BaseModel):
+    enabled: bool
+
+
+async def employee_sheet_enabled() -> bool:
+    doc = await db.settings.find_one({"_id": "portal"}) or {}
+    return bool(doc.get("employee_sheet_visible"))
+
+
+@api.get("/admin/settings/employee-sheet")
+async def get_sheet_visibility(admin: dict = Depends(admin_user)):
+    return {"enabled": await employee_sheet_enabled()}
+
+
+@api.put("/admin/settings/employee-sheet")
+async def set_sheet_visibility(body: SheetVisibilityIn, admin: dict = Depends(admin_user)):
+    await db.settings.update_one({"_id": "portal"}, {"$set": {"employee_sheet_visible": body.enabled, "updated_at": now_utc()}}, upsert=True)
+    return {"enabled": body.enabled}
+
+
+@api.get("/attendance/my-sheet")
+async def my_sheet(user: dict = Depends(employee_user)):
+    if not await employee_sheet_enabled():
+        return {"enabled": False, "months": []}
+    first = datetime.now(TZ).date().replace(day=1)
+    prev = (first - timedelta(days=1)).replace(day=1)
+    emp = await db.users.find_one({"_id": oid(user["id"])}, {"name": 1, "employee_id": 1, "department": 1})
+    months = []
+    for d in (prev, first):
+        mk = d.strftime("%Y-%m")
+        row = await sheet_row(emp, mk)
+        months.append({"month": mk, "days": calendar.monthrange(d.year, d.month)[1], "cells": row["cells"], "totals": row["totals"]})
+    return {"enabled": True, "months": months}
 
 
 class SheetCellIn(BaseModel):
