@@ -30,7 +30,15 @@ export const Panel = ({ className = "", children, ...rest }) => (
   <div {...rest} className={`rounded-xl border bg-card p-5 sm:p-6 shadow-sm ${className}`}>{children}</div>
 );
 
-export const StatCard = ({ icon: Icon, label, value, tone = "text-primary bg-blue-50", testId, delay = 0 }) => (
+export const StatCard = ({ icon: Icon, label, value, tone = "text-primary bg-blue-50", testId, delay = 0, compact = false, className = "" }) => compact ? (
+  <Panel className={`rise hover:shadow-md transition-shadow !p-4 flex items-center gap-3 ${className}`} style={{ animationDelay: `${delay}ms` }}>
+    <div className={`h-10 w-10 shrink-0 rounded-lg grid place-items-center ${tone}`}><Icon size={20} /></div>
+    <div className="min-w-0">
+      <div className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground leading-tight">{label}</div>
+      <div className="text-2xl font-display font-bold leading-tight mt-0.5" data-testid={testId}>{value}</div>
+    </div>
+  </Panel>
+) : (
   <Panel className="rise hover:shadow-md transition-shadow" style={{ animationDelay: `${delay}ms` }}>
     <div className={`h-10 w-10 rounded-lg grid place-items-center mb-4 ${tone}`}><Icon size={20} /></div>
     <div className="text-xs uppercase tracking-widest font-semibold text-muted-foreground">{label}</div>

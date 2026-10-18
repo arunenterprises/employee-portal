@@ -1,0 +1,27 @@
+{
+  "summary": "Tested the admin 'Show attendance to employees' switch and the employee previous + current month attendance sheet on the preview URL. Backend: 6/6 pytest pass. Toggle ON/OFF persists, my-sheet returns 2 months (2026-09, 2026-10) when ON and {enabled:false, months:[]} when OFF. Employee gets 403 on admin settings GET/PUT, admin gets 403 on my-sheet, unauthenticated calls are rejected, an empty body returns 422. Frontend: the admin header switch shows on /admin/attendance, the status text updates, and the state persists after reload. Clicking either the switch or its label text toggles it. Employee /employee/attendance shows my-month-sheet with my-sheet-2026-09 and my-sheet-2026-10 cards and total chips when ON, and hides it when OFF. Weekday alignment is correct (Sep 1 2026 = Tue, Oct 1 2026 = Thu). No horizontal overflow at 390px on either page. The feature works in preview, so the user's 'not showing after publishing' report most likely means production was not redeployed with the latest build. The switch is also OFF by default, so the admin must turn it ON in production.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Employee attendance sheet", "issues": ["Day numbers on empty cells use text-slate-400 with opacity-70 on bg-slate-50, which is very low contrast and hard to read", "The month filter uses the browser's native input[type=month] instead of a shadcn picker (existing behaviour)", "MyMonthSheet does not catch errors and has no loading state. If the API fails, the section silently does not render"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_employee_sheet_visibility.py", "/app/test_reports/pytest/pytest_sheet.xml"],
+  "action_items": [
+    "Redeploy/publish the latest build to production, then turn the switch ON in production Admin > Attendance (it defaults to OFF)",
+    "Optional: raise the contrast of day numbers on empty sheet cells",
+    "Optional: add .catch and a loading state in MyMonthSheet and in the SheetVisibilityToggle initial GET (if the GET fails the switch stays disabled with '…')"
+  ],
+  "critical_code_review_comments": [
+    "SheetVisibilityToggle: the initial api.get has no catch, so on failure the switch stays permanently disabled with no error shown",
+    "my_sheet uses datetime.now(TZ) for the month boundary, while the frontend month filter uses localDate(). These stay consistent as long as TZ is IST"
+  ],
+  "updated_files": ["/app/backend/tests/test_employee_sheet_visibility.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created TEST_SHEET_* (pytest) and TEST_UI5 (UI) employees; both deleted. Switch reset to OFF at the end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use backend/tests/ui_setup_iter5.py create|delete for a TEST_UI5 employee (password Passw0rd!). The switch is stored in db.settings _id=portal, field employee_sheet_visible. Do not click Monthly sheet cells (they push to the live HR system)."
+}

@@ -70,6 +70,10 @@ User choices: separate new portal; admin creates employee accounts (login with e
 ## Implemented (2026-10-18, iteration 13)
 - Admin > Attendance header toggle "Show attendance to employees" (db.settings _id=portal.employee_sheet_visible; GET/PUT /api/admin/settings/employee-sheet). When ON, employee My attendance page shows calendar sheets for previous + current month (GET /api/attendance/my-sheet, same merged data as admin sheet via sheet_row helper). Default OFF.
 
+## Implemented (2026-10-18, iteration 14)
+- Testing agent iteration_6: employee-sheet toggle + previous/current month calendar 100% backend/frontend in preview. Production confirmed serving latest build (live issue = browser cache + prod switch defaults OFF).
+- Admin Dashboard layout: compact horizontal stat cards (StatCard `compact` prop), 2/3/5 responsive grid, Pending approvals wrapped in Panel to match Today's attendance.
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)
