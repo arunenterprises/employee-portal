@@ -48,10 +48,10 @@ export default function AdminPayslips() {
                 {rows.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50 transition-colors" data-testid={`payslip-row-${p.id}`}>
                     <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{p.employee?.name}</div><div className="text-xs text-muted-foreground"><EmpCode e={p.employee} /></div></td>
-                    <td className="px-3 py-3 font-medium">{monthLabel(p.month)}</td>
-                    <td className="px-3 py-3"><Badge2 tone={p.kind === "generated" ? "blue" : "neutral"}>{p.kind}</Badge2></td>
-                    <td className="px-3 py-3 text-right font-mono font-semibold">{p.net ? fmtINR(p.net) : "—"}</td>
-                    <td className="px-5 sm:px-6 py-3 text-right whitespace-nowrap">
+                    <td className="px-3 py-3 font-medium" data-label="Month">{monthLabel(p.month)}</td>
+                    <td className="px-3 py-3" data-label="Type"><Badge2 tone={p.kind === "generated" ? "blue" : "neutral"}>{p.kind}</Badge2></td>
+                    <td className="px-3 py-3 text-right font-mono font-semibold" data-label="Net pay">{p.net ? fmtINR(p.net) : "—"}</td>
+                    <td className="rt-actions px-5 sm:px-6 py-3 text-right whitespace-nowrap" data-label="">
                       <button onClick={() => dl(p)} className="p-2 text-slate-500 hover:text-primary" aria-label="Download" data-testid={`admin-download-payslip-${p.id}`}><Download size={16} /></button>
                       <button onClick={() => remove(p)} className="p-2 text-slate-500 hover:text-rose-600" aria-label="Delete" data-testid={`admin-delete-payslip-${p.id}`}><Trash2 size={16} /></button>
                     </td>

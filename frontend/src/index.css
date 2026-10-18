@@ -82,6 +82,18 @@ h1, h2, h3, h4, .font-display {
     background-size: 32px 32px;
 }
 
+@media (max-width: 767px) {
+    table.rtable { min-width: 0 !important; width: 100%; }
+    table.rtable thead { display: none; }
+    table.rtable tbody, table.rtable tr, table.rtable td { display: block; }
+    table.rtable tbody > tr { margin: 0 1.25rem 0.75rem; border: 1px solid hsl(var(--border)) !important; border-radius: 0.75rem; padding: 0.5rem 0.875rem; background: #fff; }
+    table.rtable td { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.375rem 0 !important; text-align: right !important; border: 0 !important; white-space: normal !important; }
+    table.rtable td::before { content: attr(data-label); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: hsl(var(--muted-foreground)); text-align: left; flex-shrink: 0; }
+    table.rtable td:not([data-label]) { justify-content: flex-start; text-align: left !important; border-bottom: 1px solid hsl(var(--border)) !important; padding-bottom: 0.5rem !important; margin-bottom: 0.25rem; }
+    table.rtable td:not([data-label])::before { content: none; }
+    table.rtable td.rt-actions { justify-content: flex-end; border: 0 !important; }
+}
+
 @media print {
     body * { visibility: hidden; }
     [role="dialog"] { position: static !important; transform: none !important; max-height: none !important; overflow: visible !important; box-shadow: none !important; border: 0 !important; padding: 0 !important; }

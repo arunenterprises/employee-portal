@@ -22,7 +22,7 @@ export const ShortCodeControl = ({ employee, onChange }) => {
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => { setCode(employee.short_code || ""); setOpen(true); }} data-testid="short-code-btn">
-        <Hash size={14} className="mr-2" />{employee.short_code ? `Short code ${employee.short_code}` : "Generate short code"}
+        <Hash size={14} className="mr-2" />{employee.short_code ? `Short ID ${employee.short_code}` : "Short ID"}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm" data-testid="short-code-dialog">

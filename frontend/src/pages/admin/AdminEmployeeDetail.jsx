@@ -122,7 +122,7 @@ export function EmployeeRecord({ id, embedded }) {
             </div>
           </div>
         </div>
-        <div className="px-6 sm:px-8 py-4 border-t border-white/10 flex flex-wrap items-center gap-2" data-testid="hero-actions">
+        <div className="px-6 sm:px-8 py-4 border-t border-white/10 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 [&>*]:justify-center sm:[&>*]:justify-start" data-testid="hero-actions">
           <span className="rounded-md bg-white/10 px-3 h-9 inline-flex items-center gap-2 text-sm" data-testid="portal-access-control">Portal {live ? "Live" : "Unlive"} <AccessSwitch employee={e} onChange={setE} /></span>
           <Button size="sm" variant="secondary" onClick={() => setEdit(true)} data-testid="edit-employee-btn"><Pencil size={14} className="mr-2" />Edit details</Button>
           <ShortCodeControl employee={e} onChange={setE} />

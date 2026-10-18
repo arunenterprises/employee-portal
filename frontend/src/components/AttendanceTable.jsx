@@ -26,7 +26,7 @@ export default function AttendanceTable({ rows, showEmployee }) {
   return (
     <>
       <div className="overflow-x-auto -mx-5 sm:-mx-6">
-        <table className="w-full text-sm min-w-[620px]" data-testid="attendance-table">
+        <table className="rtable w-full text-sm min-w-[620px]" data-testid="attendance-table">
           <thead>
             <tr className="text-left text-xs uppercase tracking-widest text-muted-foreground border-b">
               {showEmployee && <th className="px-5 sm:px-6 py-3 font-semibold">Employee</th>}
@@ -40,10 +40,10 @@ export default function AttendanceTable({ rows, showEmployee }) {
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-slate-50 transition-colors" data-testid={`attendance-row-${r.id}`}>
                 {showEmployee && <td className="px-5 sm:px-6 py-3"><div className="font-semibold">{r.employee?.name || "—"}</div><div className="text-xs text-muted-foreground"><EmpCode e={r.employee} /></div></td>}
-                <td className="px-5 sm:px-6 py-3 font-medium whitespace-nowrap">{fmtDate(r.date)}</td>
-                <td className="px-3 py-3"><PunchCell p={r.punch_in} onView={setView} late={r.late ? r.late_minutes : 0} /></td>
-                <td className="px-3 py-3"><PunchCell p={r.punch_out} onView={setView} /></td>
-                <td className="px-5 sm:px-6 py-3 text-right font-mono">{fmtHours(r.work_minutes)}</td>
+                <td className="px-5 sm:px-6 py-3 font-medium whitespace-nowrap" data-label="Date">{fmtDate(r.date)}</td>
+                <td className="px-3 py-3" data-label="Punch in"><PunchCell p={r.punch_in} onView={setView} late={r.late ? r.late_minutes : 0} /></td>
+                <td className="px-3 py-3" data-label="Punch out"><PunchCell p={r.punch_out} onView={setView} /></td>
+                <td className="px-5 sm:px-6 py-3 text-right font-mono" data-label="Hours">{fmtHours(r.work_minutes)}</td>
               </tr>
             ))}
           </tbody>

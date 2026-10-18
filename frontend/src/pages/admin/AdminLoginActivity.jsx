@@ -39,16 +39,16 @@ const SessionCard = ({ s }) => {
 
 const LogsTable = ({ rows }) => !rows.length ? <Empty text="No login activity for this filter." testId="logs-empty" /> : (
   <div className="overflow-x-auto -mx-5 sm:-mx-6">
-    <table className="w-full text-sm min-w-[720px]" data-testid="login-logs-table">
+    <table className="rtable w-full text-sm min-w-[720px]" data-testid="login-logs-table">
       <thead><tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b"><th className="px-5 sm:px-6 py-2">Time</th><th className="py-2">Employee</th><th className="py-2">Event</th><th className="py-2">IP address</th><th className="py-2 pr-5">Device</th></tr></thead>
       <tbody>
         {rows.map((r) => (
           <tr key={r.id} className="border-b last:border-0 hover:bg-slate-50" data-testid={`log-row-${r.id}`}>
-            <td className="px-5 sm:px-6 py-2.5 whitespace-nowrap font-mono text-xs">{dt(r.at)}</td>
+            <td className="px-5 sm:px-6 py-2.5 whitespace-nowrap font-mono text-xs" data-label="Time">{dt(r.at)}</td>
             <td className="py-2.5"><Who e={r.employee} fallback={r.identifier} /></td>
-            <td className="py-2.5"><span className={`rounded px-2 py-0.5 text-xs font-semibold ${TYPE[r.type]?.[1]}`}>{TYPE[r.type]?.[0]}</span>{r.detail && <div className="text-[11px] text-muted-foreground mt-0.5">{r.detail}</div>}</td>
-            <td className="py-2.5 font-mono text-xs">{r.ip || "—"}</td>
-            <td className="py-2.5 pr-5"><Device ua={r.user_agent} /></td>
+            <td className="py-2.5" data-label="Event"><div><span className={`rounded px-2 py-0.5 text-xs font-semibold ${TYPE[r.type]?.[1]}`}>{TYPE[r.type]?.[0]}</span>{r.detail && <div className="text-[11px] text-muted-foreground mt-0.5">{r.detail}</div>}</div></td>
+            <td className="py-2.5 font-mono text-xs" data-label="IP address">{r.ip || "—"}</td>
+            <td className="py-2.5 pr-5" data-label="Device"><Device ua={r.user_agent} /></td>
           </tr>
         ))}
       </tbody>

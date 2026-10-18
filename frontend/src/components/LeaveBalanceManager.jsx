@@ -23,23 +23,25 @@ const downloadTemplate = (rows, year) => {
 };
 
 const BalCell = ({ b }) => (
-  <td className="py-2.5 px-2 text-center">
+  <td className="py-2.5 px-2 text-center" data-label={`${{ "Casual Leave": "CL", "Sick Leave": "SL", "Earned Leave": "EL" }[b.leave_type]} available`}>
+    <div>
     <div className="font-display font-bold">{b.available}</div>
     <div className="text-[10px] text-muted-foreground">of {b.allotted}{b.pending ? ` · ${b.pending} pend.` : ""}</div>
+    </div>
   </td>
 );
 
 const Row = ({ r, onLive, onEdit }) => (
   <tr className="border-b last:border-0 hover:bg-slate-50" data-testid={`lb-row-${r.employee_id}`}>
     <td className="px-5 sm:px-6 py-2.5"><div className="font-semibold leading-tight">{r.name}</div><div className="text-[11px] text-muted-foreground"><EmpCode e={r} /></div></td>
-    {r.configured ? TRACKED.map((lt) => <BalCell key={lt} b={r.balances.find((b) => b.leave_type === lt)} />) : <td colSpan={3} className="text-center text-xs text-muted-foreground">Not set</td>}
-    <td className="py-2.5 px-2">
+    {r.configured ? TRACKED.map((lt) => <BalCell key={lt} b={r.balances.find((b) => b.leave_type === lt)} />) : <td colSpan={3} className="text-center text-xs text-muted-foreground" data-label="Leave balance">Not set</td>}
+    <td className="py-2.5 px-2" data-label="Show to employee">
       <label className="inline-flex items-center gap-2 cursor-pointer">
         <Switch checked={r.live} onCheckedChange={(v) => onLive([r.user_id], v)} data-testid={`lb-live-${r.employee_id}`} />
         <span className={`text-xs font-semibold ${r.live ? "text-emerald-700" : "text-slate-500"}`}>{r.live ? "Live" : "Unlive"}</span>
       </label>
     </td>
-    <td className="py-2.5 pr-5 text-right"><Button size="sm" variant="outline" onClick={() => onEdit(r)} data-testid={`lb-edit-${r.employee_id}`}><Pencil size={13} className="mr-1" />Edit</Button></td>
+    <td className="rt-actions py-2.5 pr-5 text-right" data-label=""><Button size="sm" variant="outline" onClick={() => onEdit(r)} data-testid={`lb-edit-${r.employee_id}`}><Pencil size={13} className="mr-1" />Edit</Button></td>
   </tr>
 );
 
@@ -97,7 +99,7 @@ export default function LeaveBalanceManager() {
       </p>
       {!data ? <div className="text-sm text-muted-foreground">Loading…</div> : !rows.length ? <Empty text="No employees." /> : (
         <div className="overflow-x-auto -mx-5 sm:-mx-6">
-          <table className="w-full text-sm min-w-[640px]" data-testid="lb-table">
+          <table className="rtable w-full text-sm min-w-[640px]" data-testid="lb-table">
             <thead><tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b">
               <th className="px-5 sm:px-6 py-2">Employee</th>{TRACKED.map((lt) => <th key={lt} className="py-2 px-2 text-center">{SHORT[lt]} <span className="normal-case font-normal">avail.</span></th>)}<th className="py-2 px-2">Show to employee</th><th className="py-2 pr-5" />
             </tr></thead>

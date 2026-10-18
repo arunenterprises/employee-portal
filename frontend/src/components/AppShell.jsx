@@ -72,8 +72,8 @@ export default function AppShell({ nav, area }) {
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t grid" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
         {nav.map(({ key, to, label, icon: Icon, end }) => (
           <NavLink key={key} to={to} end={end} data-testid={`mnav-${key}`}
-            className={({ isActive }) => `flex flex-col items-center gap-1 py-2.5 text-[10px] leading-tight text-center font-medium ${isActive ? "text-primary" : "text-slate-500"}`}>
-            <Icon size={20} />{label}
+            className={({ isActive }) => `flex flex-col items-center gap-1 py-2.5 px-0.5 text-[10px] leading-tight text-center font-medium whitespace-nowrap overflow-hidden ${isActive ? "text-primary" : "text-slate-500"}`}>
+            <Icon size={20} /><span className="truncate max-w-full">{nav.length > 5 ? ({ Dashboard: "Home", Employees: "Staff", "Service Book": "Book", Attendance: "Attend" }[label] || label) : label}</span>
           </NavLink>
         ))}
       </nav>

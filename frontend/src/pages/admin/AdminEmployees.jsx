@@ -76,7 +76,7 @@ export default function AdminEmployees() {
         </div>
         {shown.length ? (
           <div className="overflow-x-auto -mx-5 sm:-mx-6">
-            <table className="w-full text-sm min-w-[760px]" data-testid="employees-table">
+            <table className="rtable w-full text-sm min-w-[760px]" data-testid="employees-table">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-widest text-muted-foreground border-b">
                   <th className="px-5 sm:px-6 py-3 font-semibold">Employee</th>
@@ -95,12 +95,12 @@ export default function AdminEmployees() {
                       <Link to={`/admin/employees/${e.id}`} onClick={(ev) => ev.stopPropagation()} className="font-semibold text-primary hover:underline" data-testid={`employee-link-${e.employee_id}`}>{e.name}</Link>
                       <div className="text-xs font-mono font-semibold text-slate-700 mt-0.5">{e.employee_id}</div>
                     </td>
-                    <td className="px-3 py-3">{e.short_code ? <span className="inline-flex rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 font-mono text-xs font-bold tracking-wider" data-testid={`short-code-${e.short_code}`}>{e.short_code}</span> : <span className="text-xs text-muted-foreground">Not created</span>}</td>
-                    <td className="px-3 py-3">{e.department || "—"}</td>
-                    <td className="px-3 py-3">{e.designation || "—"}</td>
-                    <td className="px-3 py-3 whitespace-nowrap">{fmtDate(e.joining_date)}</td>
-                    <td className="px-3 py-3"><Badge2 tone={e.active !== false ? "approved" : "rejected"}>{e.active !== false ? "Active" : "Inactive"}</Badge2></td>
-                    <td className="px-5 sm:px-6 py-3"><AccessSwitch employee={e} onChange={(u) => setRows((rs) => rs.map((x) => (x.id === u.id ? u : x)))} /></td>
+                    <td className="px-3 py-3" data-label="Short Code / ID">{e.short_code ? <span className="inline-flex rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 font-mono text-xs font-bold tracking-wider" data-testid={`short-code-${e.short_code}`}>{e.short_code}</span> : <span className="text-xs text-muted-foreground">Not created</span>}</td>
+                    <td className="px-3 py-3" data-label="Department">{e.department || "—"}</td>
+                    <td className="px-3 py-3" data-label="Designation">{e.designation || "—"}</td>
+                    <td className="px-3 py-3 whitespace-nowrap" data-label="Joined">{fmtDate(e.joining_date)}</td>
+                    <td className="px-3 py-3" data-label="Status"><Badge2 tone={e.active !== false ? "approved" : "rejected"}>{e.active !== false ? "Active" : "Inactive"}</Badge2></td>
+                    <td className="px-5 sm:px-6 py-3" data-label="Portal Live" onClick={(ev) => ev.stopPropagation()}><AccessSwitch employee={e} onChange={(u) => setRows((rs) => rs.map((x) => (x.id === u.id ? u : x)))} /></td>
                   </tr>
                 ))}
               </tbody>
