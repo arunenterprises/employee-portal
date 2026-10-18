@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Plus, Search, Users, RefreshCw, Printer, Hash } from "lucide-react";
+import { Plus, Search, Users, RefreshCw, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +64,7 @@ export default function AdminEmployees() {
     <div>
       <PageHeader eyebrow="People" title="Employees" desc="Create employee accounts and manage their records."
         action={<div className="flex flex-wrap gap-2">
-          <Button onClick={genCodes} disabled={!missing} className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="generate-short-codes-btn"><Hash size={16} className="mr-2" />{missing ? `Create Short ID (${missing})` : "Short IDs ready"}</Button>
+          <Button onClick={genCodes} disabled={!missing} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4" data-testid="generate-short-codes-btn">{missing ? `Create Short ID (${missing})` : "Short IDs ready"}</Button>
           <Button variant="outline" onClick={() => setSlipsOpen(true)} data-testid="credential-slips-btn"><Printer size={16} className="mr-2" />Credential slips</Button>
           <Button onClick={() => setOpen(true)} data-testid="add-employee-btn"><Plus size={16} className="mr-2" />Add employee</Button>
         </div>} />
