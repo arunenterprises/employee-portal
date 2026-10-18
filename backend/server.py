@@ -291,7 +291,7 @@ class EmployeeIn(BaseModel):
 async def check_unique(email: str, emp_id: str, exclude: Optional[ObjectId] = None):
     if not emp_id or "@" not in email or "." not in email.split("@")[-1]:
         raise HTTPException(status_code=400, detail="Valid Employee ID and email are required")
-    q = {"$or": [{"email": email}, {"employee_id": emp_id}]}
+    q = {"$or": [{"email": email}, {"employee_id": emp_id}, {"short_code": emp_id}]}
     if exclude:
         q["_id"] = {"$ne": exclude}
     if await db.users.find_one(q):

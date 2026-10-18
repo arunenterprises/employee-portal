@@ -85,6 +85,14 @@ User choices: separate new portal; admin creates employee accounts (login with e
 - Leave request cards in admin show the employee's balance strip (red if pending is more than available).
 - Testing agent iteration 8 (summary only, no JSON): backend 14/14, frontend 100%. Fixed after the test: empty user_ids now returns 400, confirm on bulk live, available shown never below 0, quota fields disabled until loaded.
 
+## Implemented (2026-10-18, iteration 17)
+- Short code (5-6 alphanumeric, e.g. AE0005 from serial) per employee: shortcode.py, auto on create/vendor sync, bulk "Create Short ID" (green) on Employees page, per-employee edit/auto in detail hero, login with short code/full code/email, shown next to employee code everywhere (lists, sheet, requests, payslips, logins, slips, profile, dropdowns, CSVs). Unique index; check_unique rejects employee_id = other short code. Real employees have NO short code until admin clicks Create Short ID.
+- Employees table: name is a link, employee ID bold, new "Short Code / ID" column, Vendor HR tag removed.
+- Credential slips: nothing pre-selected + confirm before resetting passwords (after testing agent accidentally reset 9 real passwords; it restored them to the original vendor initial passwords).
+- Attendance monthly sheet mobile: per-employee cards with a 7-column day grid (editable), table on md+.
+- PWA: manifest.json, icon-192/512 from logo, sw.js, title "ARUN ENTERPRISES | Employee Portal" -> installable on Android (Add to Home screen / Install app).
+- Testing agent iteration_9: backend 26/26, frontend 100%.
+
 ## Backlog
 - P1: Leave balance/quotas per type; mobile card layout for attendance table; set company name (COMPANY_NAME env, currently placeholder)
 - P1: Attendance monthly report export (CSV/Excel)

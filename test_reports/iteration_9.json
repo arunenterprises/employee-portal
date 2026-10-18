@@ -1,0 +1,37 @@
+{
+  "summary": "Tested the short code feature and the PWA, backend and frontend. Backend pytest /app/backend/tests/test_short_codes.py: 26/26 pass. It covers: short code created automatically (TEST/EMP/000888 -> AE0888; a random AExxxx when that code is taken); PUT short-code checks (400 for bad format, 409 for a duplicate, lowercase saved as uppercase, empty value -> auto, 404, non-admin blocked); login with short code (any case or spaces), full code or email; short_code returned by auth/me, leave-balances, attendance-sheet and credential-slips; leave CSV upload accepts a short code; manifest, icons, sw.js and index.html. UI checks passed: login label; Employees list badge and search by 'tst77'; generate button shows the count of missing codes (not clicked); detail page hero badge, Job info 'Short code' and the ShortCodeControl dialog (input cleans text, Save disabled under 5 chars, custom save, auto generate -> AE0777, restore); sheet badge and CSV 'Short Code' column; Leave Balance badge and template 'Short Code' column; employee dropdowns 'TST77 · CODE · Name' on Attendance, Payslips and Logins; Login Activity badges; credential slip short code; employee dashboard header, AppShell line and Profile 'Short code (login)'; service worker registered; no horizontal overflow at 390px on the list or detail page. INCIDENT: the Credential Slips dialog pre-selects every employee who has not changed their first password, so my test generated slips for all 10 employees and reset the passwords of the 9 real employees. I restored them right away to their original vendor passwords (DOB DDMMYYYY, else mobile), since none had ever logged in (0 login logs). I also removed slip_issued_at and confirmed login AE/EMP/000005/26-27 / 26011985 works (I deleted the log and session from that check). The TEST employee is deleted. Real employees still have no short codes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST/PUT /api/admin/employees (check_unique)", "issue": "A new or edited employee_id is not checked against other employees' short codes. Example: creating an employee with ID 'AE0005' while another employee has short code AE0005. Login find_one with $or could then match the wrong user."},
+      {"endpoint": "users.short_code unique index", "issue": "The partial filter is $type string, so short_code '' counts as indexed. Two employees with '' would hit a duplicate key error. The code never writes '', but a safer filter is {$type:'string', $gt:''}, or always $unset instead of writing ''."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CredentialSlips select dialog", "issue": "Every employee who has not changed their first password is pre-selected. One click on Generate resets passwords for ALL of them. This is risky; at least require explicit confirmation. In my test, clicking one row checkbox did not limit the selection.", "selector": "[data-testid=slips-generate-btn]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Preview dev server", "issues": ["The frontend dev server was serving a stale index.html (title 'Emergent | Fullstack App', no manifest link). Fixed by restarting the frontend with supervisorctl. The production build is unaffected."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_short_codes.py", "/app/test_reports/pytest/pytest_short_codes.xml"],
+  "action_items": [
+    "In check_unique, also reject an employee_id that equals another user's short_code.",
+    "Credential slips: add a confirm step showing how many passwords will be reset, or pre-select nobody.",
+    "Optional: tighten the short_code partial index so it excludes empty strings."
+  ],
+  "critical_code_review_comments": [
+    "shortcode.make_short_code: for a digit group of 100000 or more it falls back to random (fine). Leading zeros are dropped before padding (000005 -> AE0005), as intended.",
+    "Bulk generate makes one find_one per candidate per employee. Fine for about 10 employees. Not executed, as instructed; logic reviewed only (overwrite unsets codes first, then regenerates).",
+    "Leave upload looks up the code in either column. When both 'Employee Code' and 'Short Code' columns are present, only code_col (Employee Code) is used, which is correct."
+  ],
+  "updated_files": ["/app/backend/tests/test_short_codes.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Temporary TEST employees (000888, TEST/X/0888) were created and deleted by the pytest. The given TEST employee TST77 was deleted at the end. Real employees' password hashes were reset to their vendor-initial passwords after the accidental slip generation.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run with -n0 (pytest.ini adds xdist). test_short_codes.py expects /tmp/eid to hold a TEST employee with short code TST77 / Test@12345. Create it again before running, or adjust the test. NEVER open Credential slips and Generate during tests: it pre-selects all real employees. Admin login route for logs is /admin/login-activity; the employee profile is /employee/profile.",
+  "rca of the issue": "Accidental password reset: CredentialSlips pre-selects employees with must_change_password=true (all real employees). The test clicked one checkbox and then Generate, so 10 slips were issued. Fixed by restoring the vendor-initial password hashes with must_change_password=true."
+}

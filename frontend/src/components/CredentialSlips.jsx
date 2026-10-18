@@ -56,13 +56,14 @@ export default function CredentialSlipsDialog({ open, onOpenChange, employees, o
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open) setSel(new Set(employees.filter((e) => e.must_change_password && e.portal_enabled !== false && e.active !== false).map((e) => e.id)));
+    if (open) setSel(new Set());
   }, [open, employees]);
 
   const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const all = sel.size === employees.length;
 
   const generate = async () => {
+    if (!window.confirm(`This will RESET the password of ${sel.size} employee(s) and print new slips. Continue?`)) return;
     setBusy(true);
     try { onIssued(await issueSlips([...sel])); onOpenChange(false); } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
@@ -72,7 +73,7 @@ export default function CredentialSlipsDialog({ open, onOpenChange, employees, o
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="slips-select-dialog">
         <DialogHeader>
           <DialogTitle className="font-display">Print credential slips</DialogTitle>
-          <DialogDescription>Select employees. Pre-selected: employees who have not changed their first password yet.</DialogDescription>
+          <DialogDescription>Select employees. Their password will be reset and a new slip printed.</DialogDescription>
         </DialogHeader>
         <div className="flex gap-2 rounded-lg bg-amber-50 text-amber-800 p-3 text-sm"><AlertTriangle size={16} className="mt-0.5 shrink-0" />Generating a slip sets a NEW password for each selected employee. Their old password stops working.</div>
         <label className="flex items-center gap-2 text-sm font-semibold border-b pb-2">

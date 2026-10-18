@@ -36,7 +36,7 @@ const exportCsv = (data, month, days) => {
 
 const EDIT_CODES = ["P", "A", "L", "H", "W", "HL"];
 
-const CellEditor = ({ row, day, month, c, onSaved }) => {
+const CellEditor = ({ row, day, month, c, onSaved, idPrefix = "sheet-cell" }) => {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState("");
@@ -52,7 +52,7 @@ const CellEditor = ({ row, day, month, c, onSaved }) => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="block w-full" data-testid={`sheet-cell-${row.employee_id}-${day}`}><CellBox c={c} /></button>
+        <button type="button" className="block w-full" data-testid={`${idPrefix}-${row.employee_id}-${day}`}><CellBox c={c} /></button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3" data-testid="sheet-cell-editor">
         <div className="text-sm font-semibold">{row.name}</div>
@@ -120,7 +120,29 @@ export default function AttendanceSheet() {
         <span className="rounded px-2 py-0.5 bg-white border inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-sky-600" />Edited by admin · click any day to edit</span>
       </div>
       {!data ? <div className="text-muted-foreground text-sm">Loading…</div> : !data.rows.length ? <Empty text="No employees." /> : (
-        <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+        <>
+        <div className="md:hidden space-y-3" data-testid="sheet-mobile">
+          {data.rows.map((r) => (
+            <div key={r.user_id} className="rounded-xl border bg-white p-3" data-testid={`sheet-card-${r.employee_id}`}>
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0"><div className="font-semibold leading-tight truncate">{r.name}</div><div className="text-[10px] font-mono text-muted-foreground">{r.employee_id} <ShortBadge code={r.short_code} /></div></div>
+                <div className="flex flex-wrap justify-end gap-1 text-[10px] font-bold shrink-0">
+                  {TOTAL_KEYS.map((k) => <span key={k} className={`rounded px-1.5 py-0.5 ${CODES[k][1]}`}>{k} {r.totals[k] || 0}</span>)}
+                  <span className="rounded px-1.5 py-0.5 bg-orange-50 text-orange-700">Late {r.totals.late || 0}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {days.map((d) => (
+                  <div key={d} className="text-center">
+                    <div className="text-[9px] text-muted-foreground leading-none mb-0.5">{Number(d)} {dow(d)}</div>
+                    <CellEditor c={r.cells[d]} row={r} day={d} month={month} onSaved={load} idPrefix="sheet-mcell" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="hidden md:block overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
           <table className="border-collapse text-sm" data-testid="sheet-table">
             <thead>
               <tr className="text-[11px] text-muted-foreground">
@@ -142,6 +164,7 @@ export default function AttendanceSheet() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
