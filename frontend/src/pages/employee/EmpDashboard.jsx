@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Panel, StatCard, StatusBadge, Empty, EmpCode } from "@/components/common";
 import PunchDialog from "@/components/PunchDialog";
 import { BalanceCards } from "@/components/LeaveBalance";
+import { PunchReminders } from "@/components/PunchReminders";
 import { useAuth } from "@/context/AuthContext";
 import { api, fmtTime, fmtLate, fmtINR, fmtHours, monthLabel, fmtDate } from "@/lib/api";
 
@@ -141,6 +142,8 @@ export default function EmpDashboard() {
           ) : <p className="text-sm text-muted-foreground flex items-center gap-2"><Wallet size={16} />No payslip published yet.</p>}
         </Panel>
       </div>
+
+      <PunchReminders />
 
       {bal?.live !== false && <Panel className="rise" data-testid="dashboard-leave-balance">
         <h3 className="font-display text-lg font-semibold mb-4">Leave balance ({new Date().getFullYear()})</h3>

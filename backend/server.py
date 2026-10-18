@@ -31,6 +31,8 @@ import csv
 import io
 import asyncio
 import hmac
+import json
+from pywebpush import webpush, WebPushException
 
 client = AsyncIOMotorClient(os.environ['MONGO_URL'], tz_aware=True)
 db = client[os.environ['DB_NAME']]
@@ -393,7 +395,7 @@ async def delete_employee(emp_id: str, admin: dict = Depends(admin_user)):
     res = await db.users.delete_one({"_id": oid(emp_id), "role": "employee"})
     if not res.deleted_count:
         raise HTTPException(status_code=404, detail="Employee not found")
-    for col in (db.service_records, db.attendance, db.requests, db.payslips, db.employee_media, db.leave_balances, db.leave_adjustments, db.appraisals, db.login_sessions, db.login_logs, db.attendance_overrides):
+    for col in (db.service_records, db.attendance, db.requests, db.payslips, db.employee_media, db.leave_balances, db.leave_adjustments, db.appraisals, db.login_sessions, db.login_logs, db.attendance_overrides, db.push_subscriptions):
         await col.delete_many({"user_id": emp_id})
     return {"ok": True}
 
@@ -1304,6 +1306,113 @@ async def cron_vendor_sync(request: Request):
     if run_id and await db.sync_logs.find_one({"run_id": run_id}):
         return {"accepted": True, "duplicate": True}
     task = asyncio.create_task(run_sync(db, hash_password, datetime.now(TZ).date(), "cron", run_id))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+    return {"accepted": True}
+
+
+class PushSubIn(BaseModel):
+    endpoint: str = Field(min_length=20, max_length=2048)
+    keys: dict = {}
+
+
+def _webpush_sync(sub: dict, payload: dict):
+    webpush(subscription_info={"endpoint": sub["endpoint"], "keys": sub["keys"]}, data=json.dumps(payload),
+            vapid_private_key=os.environ["VAPID_PRIVATE_KEY"], vapid_claims={"sub": os.environ["VAPID_SUBJECT"]}, ttl=3600)
+
+
+async def push_to_user(uid: str, payload: dict) -> int:
+    sent = 0
+    for s in await db.push_subscriptions.find({"user_id": uid}).to_list(20):
+        try:
+            await asyncio.to_thread(_webpush_sync, s, payload)
+            sent += 1
+        except WebPushException as e:
+            code = getattr(e.response, "status_code", None)
+            if code in (404, 410):
+                await db.push_subscriptions.delete_one({"_id": s["_id"]})
+            else:
+                logger.warning("Push failed (%s) for user %s", code, uid)
+        except Exception:
+            logger.exception("Push error for user %s", uid)
+    return sent
+
+
+@api.get("/push/public-key")
+async def push_public_key():
+    return {"publicKey": os.environ["VAPID_PUBLIC_KEY"]}
+
+
+@api.get("/push/status")
+async def push_status(user: dict = Depends(employee_user)):
+    return {"devices": await db.push_subscriptions.count_documents({"user_id": user["id"]})}
+
+
+@api.post("/push/subscribe")
+async def push_subscribe(body: PushSubIn, request: Request, user: dict = Depends(employee_user)):
+    if not body.endpoint.startswith("https://") or not {"p256dh", "auth"} <= set(body.keys):
+        raise HTTPException(status_code=400, detail="Invalid push subscription")
+    await db.push_subscriptions.update_one({"endpoint": body.endpoint}, {"$set": {
+        "user_id": user["id"], "keys": {"p256dh": str(body.keys["p256dh"]), "auth": str(body.keys["auth"])},
+        "user_agent": request.headers.get("user-agent", "")[:300], "updated_at": now_utc()}}, upsert=True)
+    return {"ok": True}
+
+
+@api.post("/push/unsubscribe")
+async def push_unsubscribe(body: PushSubIn, user: dict = Depends(employee_user)):
+    await db.push_subscriptions.delete_one({"endpoint": body.endpoint, "user_id": user["id"]})
+    return {"ok": True}
+
+
+@api.post("/push/test")
+async def push_test(user: dict = Depends(employee_user)):
+    sent = await push_to_user(user["id"], {"title": "ARUN ENTERPRISES", "body": "Test reminder: punch notifications are working.", "url": "/employee", "tag": "punch-test"})
+    return {"sent": sent}
+
+
+REMINDER_TEXT = {
+    "in": ("Punch In reminder", "Good morning {name}! Punch In window is open ({win}). Tap to punch now."),
+    "out": ("Punch Out reminder", "{name}, don't forget to Punch Out ({win}). Tap to punch now."),
+}
+
+
+async def run_punch_reminder(kind: str, run_id: Optional[str]):
+    today = today_str()
+    await db.reminder_logs.insert_one({"run_id": run_id, "kind": kind, "date": today, "started_at": now_utc(), "sent": 0})
+    uids = await db.push_subscriptions.distinct("user_id")
+    emps = await db.users.find({"_id": {"$in": [oid(u) for u in uids]}, "role": "employee", "active": {"$ne": False}, "portal_enabled": {"$ne": False}}, {"name": 1}).to_list(5000)
+    att = {a["user_id"]: a for a in await db.attendance.find({"date": today}, {"user_id": 1, "punch_out": 1}).to_list(5000)}
+    on_leave = set(await db.requests.distinct("user_id", {"type": "leave", "status": "approved", "start_date": {"$lte": today}, "end_date": {"$gte": today}}))
+    win = os.environ["PUNCH_IN_WINDOW" if kind == "in" else "PUNCH_OUT_WINDOW"].replace("-", " – ")
+    title, body = REMINDER_TEXT[kind]
+    sent = 0
+    for e in emps:
+        uid = str(e["_id"])
+        a = att.get(uid)
+        if uid in on_leave or (kind == "in" and a) or (kind == "out" and (not a or a.get("punch_out"))):
+            continue
+        sent += await push_to_user(uid, {"title": title, "body": body.format(name=(e.get("name") or "").split(" ")[0], win=win), "url": "/employee", "tag": f"punch-{kind}-{today}"})
+    await db.reminder_logs.update_one({"run_id": run_id, "kind": kind, "date": today}, {"$set": {"sent": sent, "finished_at": now_utc()}})
+
+
+@api.post("/cron/punch-reminder-{kind}")
+async def cron_punch_reminder(kind: str, request: Request):
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or not hmac.compare_digest(auth[7:], os.environ["WEBHOOK_CRON_SECRET"]):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if kind not in ("in", "out"):
+        raise HTTPException(status_code=404, detail="Unknown reminder")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if body is not None and not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Invalid body")
+    run_id = request.headers.get("X-Webhook-Id") or (body or {}).get("run_id")
+    if run_id and await db.reminder_logs.find_one({"run_id": run_id}):
+        return {"accepted": True, "duplicate": True}
+    task = asyncio.create_task(run_punch_reminder(kind, run_id))
     _bg_tasks.add(task)
     task.add_done_callback(_bg_tasks.discard)
     return {"accepted": True}

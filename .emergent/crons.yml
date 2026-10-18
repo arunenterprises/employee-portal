@@ -6,3 +6,19 @@ crons:
     endpoint: "{{BASE_URL}}/api/cron/vendor-sync"
     method: POST
     enabled: true
+  - name: punch-in-reminder
+    description: "Mon-Sat 9:10 AM IST push reminder to employees who have not punched in yet"
+    cron: "10 9 * * 1-6"
+    timezone: "Asia/Kolkata"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/punch-reminder-in"
+    method: POST
+    enabled: true
+  - name: punch-out-reminder
+    description: "Mon-Sat 6:10 PM IST push reminder to employees who have not punched out yet"
+    cron: "10 18 * * 1-6"
+    timezone: "Asia/Kolkata"
+    # Cron endpoints must ack 2xx immediately; enqueue/background the actual work.
+    endpoint: "{{BASE_URL}}/api/cron/punch-reminder-out"
+    method: POST
+    enabled: true

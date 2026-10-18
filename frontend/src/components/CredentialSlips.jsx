@@ -1,3 +1,4 @@
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import { Printer, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,12 +19,23 @@ const Slip = ({ s, issued }) => (
       </div>
     </div>
     <div className="mt-3 text-sm"><span className="font-semibold">{s.name}</span>{(s.designation || s.department) && <span className="text-slate-500"> · {[s.designation, s.department].filter(Boolean).join(", ")}</span>}</div>
+    <div className="mt-3 flex items-stretch gap-4">
+      <div className="flex-1 rounded-lg bg-slate-900 text-white px-4 py-3 flex flex-col justify-center" data-testid={`slip-short-${s.employee_id}`}>
+        <div className="text-[10px] uppercase tracking-widest text-slate-300">Login ID (Short Code)</div>
+        <div className="font-mono font-extrabold text-4xl tracking-[0.2em] leading-tight">{s.short_code || s.employee_id}</div>
+        <div className="text-[10px] uppercase tracking-widest text-slate-300 mt-2">Password</div>
+        <div className="font-mono font-bold text-2xl tracking-widest" data-testid={`slip-password-${s.employee_id}`}>{s.password}</div>
+      </div>
+      <div className="text-center shrink-0" data-testid={`slip-qr-${s.employee_id}`}>
+        <QRCodeSVG value={`${window.location.origin}/login`} size={104} level="M" />
+        <div className="text-[9px] font-semibold text-slate-600 mt-1 leading-tight">Scan to open<br />& install app</div>
+      </div>
+    </div>
     <div className="mt-3 grid grid-cols-[110px_1fr] gap-y-1.5 text-sm">
       <span className="text-slate-500">Portal</span><span className="font-mono text-xs break-all">{window.location.origin}/login</span>
       <span className="text-slate-500">Employee Code</span><span className="font-mono font-semibold">{s.employee_id}</span>
-      {s.short_code && <><span className="text-slate-500">Short Code</span><span className="font-mono font-bold text-lg tracking-wider" data-testid={`slip-short-${s.employee_id}`}>{s.short_code}</span></>}
-      <span className="text-slate-500">Password</span><span className="font-mono font-bold text-lg tracking-wider" data-testid={`slip-password-${s.employee_id}`}>{s.password}</span>
     </div>
+    <p className="mt-2 text-[11px] text-slate-600 leading-snug"><b>Install app:</b> scan QR → open in Chrome → ⋮ menu → Install app / Add to Home screen → log in → Turn on punch reminders.</p>
     <p className="mt-3 text-[11px] text-slate-500 leading-snug">Change this password after first login (Profile → Change password). Do not share it with anyone. Issued {fmtDate(issued)}.</p>
     <p className="mt-1 text-[10px] text-slate-400">{ADDRESS}</p>
   </div>
