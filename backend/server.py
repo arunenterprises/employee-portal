@@ -882,6 +882,10 @@ async def check_leave_balance(uid: str, year: str, leave_type: str, days: float,
         return
     row = next(x for x in b["balances"] if x["leave_type"] == lt)
     free = row["available"] - (row["pending"] if include_pending else 0)
+    if days > free and include_pending:
+        emp = await db.users.find_one({"_id": oid(uid)}, {"leave_balance_live": 1}) or {}
+        if emp.get("leave_balance_live") is False:
+            raise HTTPException(status_code=400, detail=f"Not enough {lt} balance for this request. Contact HR.")
     if days > free:
         raise HTTPException(status_code=400, detail=f"Insufficient {lt} balance. Available: {free:g} day(s), requested: {days:g}")
 
@@ -933,7 +937,9 @@ async def all_leave_balances(year: Optional[str] = None, admin: dict = Depends(a
 @api.put("/admin/leave-balances/live")
 async def set_leave_live(body: LeaveLiveIn, admin: dict = Depends(admin_user)):
     q = {"role": "employee"}
-    if body.user_ids:
+    if body.user_ids is not None:
+        if not body.user_ids:
+            raise HTTPException(status_code=400, detail="user_ids cannot be empty")
         q["_id"] = {"$in": [oid(u) for u in body.user_ids]}
     res = await db.users.update_many(q, {"$set": {"leave_balance_live": body.live}})
     return {"live": body.live, "updated": res.matched_count}

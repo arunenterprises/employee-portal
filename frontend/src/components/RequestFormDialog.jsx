@@ -68,7 +68,7 @@ export default function RequestFormDialog({ open, initialType, onOpenChange, onS
               </Field>
               {row && (
                 <div className={`rounded-lg px-3 py-2 text-sm ${row.available - row.pending > 0 ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"}`} data-testid="leave-available-info">
-                  {balType} available: <span className="font-semibold">{row.available - row.pending}</span> day(s) of {row.allotted}{row.pending ? ` (pending ${row.pending})` : ""}{f.leave_type === "Half Day" ? " · Half Day uses 0.5 CL per day" : ""}
+                  {balType} available: <span className="font-semibold">{Math.max(0, row.available - row.pending)}</span> day(s) of {row.allotted}{row.pending ? ` (pending ${row.pending})` : ""}{f.leave_type === "Half Day" ? " · Half Day uses 0.5 CL per day" : ""}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3">

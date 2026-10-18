@@ -53,6 +53,7 @@ export default function LeaveBalanceManager() {
   useEffect(() => { load(); }, [load]);
 
   const setLive = async (ids, live) => {
+    if (!ids && !window.confirm(`${live ? "Show" : "Hide"} leave balance for ALL ${data?.rows?.length || 0} employees?`)) return;
     try {
       const { data: d } = await api.put("/admin/leave-balances/live", { live, user_ids: ids });
       toast.success(`${d.updated} employee(s): leave balance ${live ? "Live (visible)" : "Unlive (hidden)"}`);

@@ -44,11 +44,11 @@ const QuotaForm = ({ userId, year, data, onSaved }) => {
       <div className="text-xs font-semibold text-slate-600">Yearly quota ({year})</div>
       <div className="grid grid-cols-3 gap-3">
         {TRACKED.map((lt) => (
-          <Field key={lt} label={SHORT[lt]}><Input type="number" min="0" step="0.5" className="bg-white" value={q[lt] ?? 0} onChange={(e) => setQ({ ...q, [lt]: e.target.value })} data-testid={`quota-${SHORT[lt]}`} /></Field>
+          <Field key={lt} label={SHORT[lt]}><Input type="number" min="0" step="0.5" className="bg-white" disabled={!data} value={q[lt] ?? 0} onChange={(e) => setQ({ ...q, [lt]: e.target.value })} data-testid={`quota-${SHORT[lt]}`} /></Field>
         ))}
       </div>
       <label className="flex items-center gap-2 text-sm"><Checkbox checked={all} onCheckedChange={(v) => setAll(!!v)} data-testid="quota-apply-all" />Apply same quota to all employees</label>
-      <Button type="submit" size="sm" data-testid="quota-save-btn">Save quota</Button>
+      <Button type="submit" size="sm" disabled={!data} data-testid="quota-save-btn">Save quota</Button>
     </form>
   );
 };
