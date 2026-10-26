@@ -1,0 +1,32 @@
+{
+  "summary": "Tested the mobile responsive layout on the frontend only, at 390x844 and 1920x800. I created a TEST employee (TEST_MOB01) and seeded one TEST payslip and one TEST attendance record so the cards had data. On mobile, document scrollWidth is 390 on every admin page (dashboard, employees, employee detail, service book with an employee selected, attendance Monthly sheet and Daily punches, requests Requests and Leave Balance, payslips, login activity) and every employee page (dashboard, attendance, requests, payslips, profile). No page errors. Employees, Daily punches, Leave Balance, Login logs and employee attendance tables render as bordered label/value cards. Clicking an employee card opens the detail page. The TEST employee's Portal Live switch toggled checked->unchecked->checked and the URL stayed on /admin/employees. Dialogs all sit 12px from each screen edge (left 12, right 378) with 12px radius: Add employee, Edit details, Reset password, Short ID, Credential slips, Generate payslip, Leave and Other request forms, Punch In. The tall ones (Add/Edit 1904/758, Generate payslip 800/758) scroll inside the dialog. Bottom nav labels do not truncate (admin: Home/Staff/Book/Attend/Requests/Payslips/Logins; employee: 5 items). Desktop regression is OK: all 6 tables keep thead and table-row display. Found and fixed 2 bugs (see action items).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminPayslips table", "issue": "FIXED by tester: the table did not have the 'rtable' class, so on mobile it stayed a 600px table that scrolled sideways inside the panel. The Type column was cut off and the Net pay, Download and Delete controls were hidden off-screen. After adding the class it renders as a card.", "selector": "[data-testid=payslips-table]", "priority": "HIGH"},
+      {"component": "AttendanceTable PunchCell", "issue": "FIXED by tester: '{late && ...}' with late=0 printed a stray '0' after the punch-in time (e.g. '09:15 am0') for every on-time punch, on all screen sizes. Changed to 'late > 0 &&'.", "selector": "[data-testid=attendance-table] td[data-label='Punch in']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Attendance monthly sheet (mobile)", "issues": ["Long employee names are cut off with an ellipsis in the card header (e.g. 'Ashish Srivas...') because of the P/A/L/H/Late badges. Acceptable, but the badges could wrap below the name."]},
+      {"screen": "Employee detail / Service Book (mobile)", "issues": ["The record tabs (740px of content in 356px) scroll sideways inside their strip with no visual hint (no fade or arrow). The page itself does not overflow."]},
+      {"screen": "Leave request form / attendance date filters", "issues": ["These use the browser's native date and month inputs rather than the shadcn calendar. Usable on mobile, but inconsistent with the rest of the design."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Review and keep the 2 tester fixes: the rtable class in AdminPayslips.jsx and 'late > 0 &&' in AttendanceTable.jsx.",
+    "Optional: let the badges on the monthly sheet cards wrap so long names are not cut off.",
+    "Note: a leftover TEST employee 'TEST_MOB1 / TEST Mobile Kumar' (not created by this tester) is still in the DB. Delete it if it is no longer needed."
+  ],
+  "critical_code_review_comments": [
+    "The rtable cards rely on manual data-label on each td. Any new table must add both the class and the labels, and the payslips table was missed. Consider a shared ResponsiveTable component.",
+    "Watch for '{number && <jsx>}' patterns elsewhere: they render a stray 0."
+  ],
+  "updated_files": ["/app/frontend/src/pages/admin/AdminPayslips.jsx", "/app/frontend/src/components/AttendanceTable.jsx"],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "95% (2 bugs found and fixed, re-verified)"},
+  "seed_data_creation": "Created TEST_MOB01 (TEST_Mobile User) through the API, a TEST payslip for 2025-12 and one TEST attendance record (inserted directly into Mongo). All removed: the DELETE cascade cleared that user's data. No real employee was touched (portal_enabled=false count is 0).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Log in by POSTing to /api/auth/login and setting localStorage 'wp_token'. The browser tool's Python fails on str.replace/str.split with arguments, so build screenshot names from plain lists. To see table cards on mobile you need data: generate a payslip with POST /api/admin/payslips/generate and insert an attendance doc for a TEST user. Payslip and attendance cards were verified after the fixes."
+}

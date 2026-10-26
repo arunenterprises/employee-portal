@@ -34,7 +34,7 @@ export default function AdminPayslips() {
         </NativeSelect>
         {rows.length ? (
           <div className="overflow-x-auto -mx-5 sm:-mx-6">
-            <table className="w-full text-sm min-w-[600px]" data-testid="payslips-table">
+            <table className="rtable w-full text-sm min-w-[600px]" data-testid="payslips-table">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-widest text-muted-foreground border-b">
                   <th className="px-5 sm:px-6 py-3 font-semibold">Employee</th>
